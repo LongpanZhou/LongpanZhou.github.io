@@ -1,19 +1,34 @@
 var canvas = document.createElement("canvas");
-
+var debounceTimeout;
 var width = canvas.width = screen.width;
 var height = canvas.height = screen.height;
 
-function setCanvasSize() {  
-  document.body.appendChild(canvas);
-  var gl = canvas.getContext('webgl');
+const hasHWA = (() => {
+  const test = (force=false) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: force });
+    ctx.moveTo(0, 0),
+    ctx.lineTo(120, 121);
+    ctx.stroke();
+    return ctx.getImageData(0, 0, 200, 200).data.join();
+  };
+  return test(true) !== test(false);
+})();
 
+function setCanvasSize() {  
+  if (!hasHWA) {alert("Your browser does not have hardware acceleration turned on, please turn on hardware acceleration for a better experience.");}
+  document.body.appendChild(canvas);
+  var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
   var mouse = {x: 0, y: 0};
 
-  var numMetaballs = 20 + parseInt((width*height) / 207360);
+  var numMetaballs = 5 + parseInt((width * height)/29625);
   var metaballs = [];
-
+  
+  var minRadius = Math.min(width, height) / 48;
+  var maxRadius = Math.min(width, height) / 24;
+  
   for (var i = 0; i < numMetaballs; i++) {
-    var radius = Math.random() * (width*height) / 34560 + 20;
+    var radius = Math.random() * (maxRadius - minRadius) + minRadius;
     metaballs.push({
       x: Math.random() * (width - 2 * radius) + radius,
       y: Math.random() * (height - 2 * radius) + radius,
@@ -56,11 +71,11 @@ function setCanvasSize() {
   }
 
   if (sum >= 0.99) {
-  gl_FragColor = vec4(mix(vec3(x / WIDTH, y / HEIGHT, 1.0), vec3(0, 0, 0), max(0.0, 1.0 - (sum - 0.99) * 100.0)), 1.0);
+  gl_FragColor = vec4(mix(vec3(x / WIDTH, y / HEIGHT, 1.0), vec3(1.0, 1.0, 1.0), max(0.0, 1.0 - (sum - 0.99) * 100.0)), 1.0);
   return;
   }
 
-  gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
   }
 
   `;
@@ -158,9 +173,12 @@ function setCanvasSize() {
 }
 
 function rerender() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-  setCanvasSize();
+  clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(() => {
+    const width = canvas.width = window.innerWidth;
+    const height = canvas.height = window.innerHeight;
+    setCanvasSize();
+  }, 200);
 }
 
 setCanvasSize();

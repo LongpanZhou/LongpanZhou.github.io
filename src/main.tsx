@@ -1,9 +1,11 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import Welcome from './welcome/welcome.tsx'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './metaball.js';
+import './main.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Welcome />
-  </React.StrictMode>,
-)
+    <App />
+  </React.StrictMode>
+);

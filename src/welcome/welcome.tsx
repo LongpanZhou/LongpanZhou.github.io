@@ -1,5 +1,4 @@
 import './welcome.css'
-import './welcome.js'
 import TypeIt from 'typeit-react'
 
 function welcome() {

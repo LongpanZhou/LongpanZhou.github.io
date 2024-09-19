@@ -1,0 +1,220 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
+
+.rounded-picture {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+}
+  
+.rounded-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.name-text {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #333;
+    margin: 1rem 0;
+}
+
+.role-text {
+    font-family: 'Arial', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: #666;
+    margin: 0.5rem 0;
+    letter-spacing: 0.15em;
+}
+
+.horizontal-line {
+    border: none;
+    border-top: 2px solid black;
+    width: 15%;
+    margin: 1rem 0;
+}
+.profile-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    background: transparent;
+    box-sizing: border-box;
+    z-index: 1;
+}
+
+.card-container {
+    display: flex;
+    width: 50%;
+    align-items: flex-start;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.card {
+    width: 280px;
+    margin: 30%;
+    margin: 0 auto;
+    padding: 3rem;
+    background-color: #f9f9f9;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    border-radius: 0;
+}
+
+.bigger-card {
+    flex: 1 1 400px;
+    height: 100%;
+    margin: 0 auto;
+    padding-left: 3rem;
+    padding-right: 3rem;
+    padding-bottom: 3rem;
+    background-color: rgba(255, 255, 255, 0.85);
+    height: auto;
+    border-radius: 0;
+}
+
+.icon-list {
+    list-style-type: none;
+    padding: 0;
+    display: flex;
+    gap: 1rem;
+}
+  
+.icon-list li {
+display: inline;
+}
+
+.icon-list a {
+color: #333;
+font-size: 1.5rem;
+text-decoration: none;
+}
+
+.icon-list a:hover {
+color: #0077b5;
+}
+
+.icon-list .fa-github:hover {
+color: #333;
+}
+
+.icon-list .fa-leetcode:hover {
+color: #ff7f00;
+}
+
+.icon-list .fa-envelope:hover {
+color: #d14836;
+}
+
+.icon {
+    width: 32px;
+    height: 32px;
+}
+
+.aboutme-tittle {
+    font-size: 5rem;
+    font-weight: bold;
+    font-family: 'Montserrat', sans-serif;
+    color: #000000;
+    margin-bottom: 0.5rem;
+    background-image: url(https://cdn.pixabay.com/photo/2017/07/03/20/17/abstract-2468874_960_720.jpg);
+    background-attachment: fixed;
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+}
+
+.aboutme-subtittle {
+    font-size: 1.5rem;
+    font-weight: normal;
+    color: #666;
+    margin-bottom: 2rem;
+}
+
+.aboutme-text {
+    font-size: 1.125rem;
+    line-height: 1.35;
+    color: #444;
+    margin-bottom: 1.5rem;
+}
+
+/* Base button styles from bootstrap*/
+.btn {
+    display: inline-block;
+    font-weight: 400;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+    text-decoration: none;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: #fff;
+    color: #007bff;
+}
+
+.btn-secondary {
+    color: #fff;
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus {
+    background-color: #fff;
+    color: #000;
+}
+
+.button-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+@media (max-width: 1750px) {
+    .card-container {
+        width: 75%;
+    }
+}
+
+@media (max-width: 1175px) {
+    .card-container {
+        width: 100%;
+    }
+    .card {
+        height: 100vh;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    .bigger-card {
+        height: 100vh;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+}
