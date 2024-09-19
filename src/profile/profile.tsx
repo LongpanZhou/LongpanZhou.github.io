@@ -34,7 +34,7 @@ function profile() {
     <motion.div
       initial="hidden"
       animate="visible"
-      transition={{ duration: 1.25 }}
+      transition={{ duration: 0 }}
       variants={profileVariants}
       className="profile-container"
     >

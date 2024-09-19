@@ -14,9 +14,9 @@ const hasHWA = (() => {
   };
   return test(true) !== test(false);
 })();
+if (!hasHWA) {alert("Your browser does not have hardware acceleration turned on, please turn on hardware acceleration for a better experience.");}
 
 function setCanvasSize() {  
-  if (!hasHWA) {alert("Your browser does not have hardware acceleration turned on, please turn on hardware acceleration for a better experience.");}
   document.body.appendChild(canvas);
   var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
   var mouse = {x: 0, y: 0};
