@@ -1,7 +1,8 @@
 var canvas = document.createElement("canvas");
+document.body.appendChild(canvas);
 var debounceTimeout;
-var width = canvas.width = screen.width;
-var height = canvas.height = screen.height;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 const hasHWA = (() => {
   const test = (force=false) => {
@@ -17,21 +18,21 @@ const hasHWA = (() => {
 if (!hasHWA) {alert("Your browser does not have hardware acceleration turned on, please turn on hardware acceleration for a better experience.");}
 
 function setCanvasSize() {  
-  document.body.appendChild(canvas);
   var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+  gl.viewport(0, 0, canvas.width, canvas.height);
   var mouse = {x: 0, y: 0};
 
-  var numMetaballs = 5 + parseInt((width * height)/29625);
+  var numMetaballs = 15 + parseInt((canvas.width + canvas.width)/128);
   var metaballs = [];
   
-  var minRadius = Math.min(width, height) / 48;
-  var maxRadius = Math.min(width, height) / 24;
+  var minRadius = (canvas.width + canvas.height) / 96;
+  var maxRadius = (canvas.width + canvas.height) / 48;
   
   for (var i = 0; i < numMetaballs; i++) {
     var radius = Math.random() * (maxRadius - minRadius) + minRadius;
     metaballs.push({
-      x: Math.random() * (width - 2 * radius) + radius,
-      y: Math.random() * (height - 2 * radius) + radius,
+      x: Math.random() * (canvas.width - 2 * radius) + radius,
+      y: Math.random() * (canvas.height - 2 * radius) + radius,
       vx: (Math.random() - 0.5) * 3,
       vy: (Math.random() - 0.5) * 3,
       r: radius
@@ -51,8 +52,8 @@ function setCanvasSize() {
   var fragmentShaderSrc = `
   precision highp float;
 
-  const float WIDTH = ` + (width >> 0) + `.0;
-  const float HEIGHT = ` + (height >> 0) + `.0;
+  const float WIDTH = ` + (canvas.width >> 0) + `.0;
+  const float HEIGHT = ` + (canvas.height >> 0) + `.0;
 
   uniform vec3 metaballs[` + numMetaballs + `];
 
@@ -118,8 +119,8 @@ function setCanvasSize() {
       metaball.x += metaball.vx;
       metaball.y += metaball.vy;
 
-      if (metaball.x < metaball.r || metaball.x > width - metaball.r) metaball.vx *= -1;
-      if (metaball.y < metaball.r || metaball.y > height - metaball.r) metaball.vy *= -1;
+      if (metaball.x < metaball.r || metaball.x > canvas.width - metaball.r) metaball.vx *= -1;
+      if (metaball.y < metaball.r || metaball.y > canvas.height - metaball.r) metaball.vy *= -1;
     }
 
     var dataToSendToGPU = new Float32Array(3 * numMetaballs);
@@ -175,8 +176,8 @@ function setCanvasSize() {
 function rerender() {
   clearTimeout(debounceTimeout);
   debounceTimeout = setTimeout(() => {
-    const width = canvas.width = window.innerWidth;
-    const height = canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
     setCanvasSize();
   }, 200);
 }

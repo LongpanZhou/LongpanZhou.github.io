@@ -49,7 +49,6 @@
     bottom: 0px;
     background: transparent;
     box-sizing: border-box;
-    z-index: 1;
 }
 
 .card-container {
@@ -59,6 +58,7 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
     flex-wrap: wrap;
     align-items: stretch;
+    z-index: 1;
 }
 
 .card {
@@ -125,7 +125,7 @@ color: #d14836;
     height: 32px;
 }
 
-.aboutme-tittle {
+.aboutme-title-anime {
     font-size: 5rem;
     font-weight: bold;
     font-family: 'Montserrat', sans-serif;
@@ -137,7 +137,19 @@ color: #d14836;
     -webkit-background-clip: text;
 }
 
-.aboutme-subtittle {
+.card-title {
+    font-size: 3rem;
+    font-weight: bold;
+    font-family: 'Montserrat', sans-serif;
+    color: #000; /* Fallback color */
+    background: linear-gradient(to right, lightblue, #6a9eff, #4c7fdb, #5E4B8D);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+    display: inline-block; /* Ensure the gradient applies correctly */
+}
+
+.aboutme-subtitle {
     font-size: 1.5rem;
     font-weight: normal;
     color: #666;
@@ -152,6 +164,11 @@ color: #d14836;
 }
 
 /* Base button styles from bootstrap*/
+.button-container {
+    display: flex;
+    justify-content: space-between;
+}
+
 .btn {
     display: inline-block;
     font-weight: 400;
@@ -169,31 +186,40 @@ color: #d14836;
 
 .btn-primary {
     color: #fff;
-    background-color: #007bff;
-    border-color: #007bff;
+    background-color: #00bcd4;
+    border-color: #00bcd4;
 }
 
 .btn-primary:hover,
 .btn-primary:focus {
     background-color: #fff;
-    color: #007bff;
+    color: #00bcd4;
 }
 
 .btn-secondary {
     color: #fff;
-    background-color: #6c757d;
-    border-color: #6c757d;
+    background-color: #007bff;
+    border-color: #007bff;
 }
 
 .btn-secondary:hover,
 .btn-secondary:focus {
     background-color: #fff;
-    color: #000;
+    color: #007bff;
 }
 
-.button-container {
-    display: flex;
-    justify-content: space-between;
+
+.btn-tertiary {
+    color: #fff;
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+}
+
+.btn-tertiary:hover,
+.btn-tertiary:focus {
+    background-color: #fff;
+    color: #6f42c1;
+    border-color: #6f42c1;
 }
 
 @media (max-width: 1750px) {
@@ -202,13 +228,12 @@ color: #d14836;
     }
 }
 
-@media (max-width: 1175px) {
+@media (max-width: 1180px) {
     .card-container {
         width: 100%;
     }
     .card {
         height: 100vh;
-        padding-top: 0;
     }
     .bigger-card {
         height: 100vh;

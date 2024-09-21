@@ -14,8 +14,3 @@
     text-shadow: 0 0 10px rgba(0, 0, 0, 0.35);
     z-index: 1;
 }
-
-canvas {
-    position: absolute;
-    top: 0%;
-}

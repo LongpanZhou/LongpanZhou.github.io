@@ -1,0 +1,14 @@
+body {
+    font-family: 'Alatsi', sans-serif;
+    margin: 0;
+    background: white;
+    overflow-x: hidden;
+}
+
+canvas {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+}
