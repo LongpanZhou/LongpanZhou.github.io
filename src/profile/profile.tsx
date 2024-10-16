@@ -11,6 +11,7 @@ import Leetcode from './icons/leetcode.svg'
 import Email from './icons/gmail.svg'
 import Reusme from './Longpan_Zhou__Internship_.pdf'
 
+// @ts-ignore
 const animalClicksInstance = new AnimalClicks(
     ['🦝'],
     2000,
@@ -27,7 +28,7 @@ const animalClicksInstance = new AnimalClicks(
     fade: true,
     hideCursor: true,
     }
-  );
+);
 
 const Projects = () => {
     alert('Projects page is under construction. You can check out my projects on my GitHub page for now.')

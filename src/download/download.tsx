@@ -1,4 +1,3 @@
-import React from 'react';
 import './download.css';
 import download_icon from './download.png'
 

@@ -22,6 +22,7 @@ function Clicks() {
     hideCursor: true,
   });
 
+  // @ts-ignore
   let animalClicksInstance: AnimalClicks = null;
 
   useEffect(() => {
