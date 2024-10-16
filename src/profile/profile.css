@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
 
-.rounded-picture {
+.lp-rounded-picture {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -9,13 +9,13 @@
     background-color: #f0f0f0;
 }
   
-.rounded-image {
+.lp-rounded-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.name-text {
+.lp-name-text {
     font-family: 'Montserrat', sans-serif;
     font-size: 2rem;
     font-weight: 700;
@@ -23,7 +23,7 @@
     margin: 1rem 0;
 }
 
-.role-text {
+.lp-role-text {
     font-family: 'Arial', sans-serif;
     font-size: 1.5rem;
     font-weight: 500;
@@ -32,13 +32,14 @@
     letter-spacing: 0.15em;
 }
 
-.horizontal-line {
+.lp-horizontal-line {
     border: none;
     border-top: 2px solid black;
     width: 15%;
     margin: 1rem 0;
 }
-.profile-container {
+
+.lp-profile-container {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -51,18 +52,16 @@
     box-sizing: border-box;
 }
 
-.card-container {
+.lp-card-container {
     display: flex;
     width: 50%;
-    align-items: flex-start;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
     flex-wrap: wrap;
     align-items: stretch;
     z-index: 1;
 }
 
-.card {
-    width: 280px;
+.lp-small-card {
     margin: 0 auto;
     padding: 3rem;
     background-color: #f9f9f9;
@@ -75,57 +74,55 @@
     border-radius: 0;
 }
 
-.bigger-card {
+.lp-bigger-card {
     flex: 1 1 400px;
     height: 100%;
     margin: 0 auto;
-    padding-left: 3rem;
-    padding-right: 3rem;
-    padding-bottom: 3rem;
+    padding: 3rem;
     background-color: rgba(255, 255, 255, 0.85);
     height: auto;
     border-radius: 0;
 }
 
-.icon-list {
+.lp-icon-list {
     list-style-type: none;
     padding: 0;
     display: flex;
     gap: 1rem;
 }
   
-.icon-list li {
+.lp-icon-list li {
 display: inline;
 }
 
-.icon-list a {
+.lp-icon-list a {
 color: #333;
 font-size: 1.5rem;
 text-decoration: none;
 }
 
-.icon-list a:hover {
+.lp-icon-list a:hover {
 color: #0077b5;
 }
 
-.icon-list .fa-github:hover {
+.lp-icon-list .fa-github:hover {
 color: #333;
 }
 
-.icon-list .fa-leetcode:hover {
+.lp-icon-list .fa-leetcode:hover {
 color: #ff7f00;
 }
 
-.icon-list .fa-envelope:hover {
+.lp-icon-list .fa-envelope:hover {
 color: #d14836;
 }
 
-.icon {
+.lp-icon {
     width: 32px;
     height: 32px;
 }
 
-.aboutme-title-anime {
+.lp-aboutme-title-anime {
     font-size: 5rem;
     font-weight: bold;
     font-family: 'Montserrat', sans-serif;
@@ -137,7 +134,7 @@ color: #d14836;
     -webkit-background-clip: text;
 }
 
-.card-title {
+.lp-card-title {
     font-size: 3rem;
     font-weight: bold;
     font-family: 'Montserrat', sans-serif;
@@ -149,14 +146,14 @@ color: #d14836;
     display: inline-block; /* Ensure the gradient applies correctly */
 }
 
-.aboutme-subtitle {
+.lp-aboutme-subtitle {
     font-size: 1.5rem;
     font-weight: normal;
     color: #666;
     margin-bottom: 2rem;
 }
 
-.aboutme-text {
+.lp-aboutme-text {
     font-size: 1.125rem;
     line-height: 1.35;
     color: #444;
@@ -164,12 +161,12 @@ color: #d14836;
 }
 
 /* Base button styles from bootstrap*/
-.button-container {
+.lp-button-container {
     display: flex;
     justify-content: space-between;
 }
 
-.btn {
+.lp-btn {
     display: inline-block;
     font-weight: 400;
     text-align: center;
@@ -184,58 +181,58 @@ color: #d14836;
     text-decoration: none;
 }
 
-.btn-primary {
+.lp-btn-primary {
     color: #fff;
     background-color: #00bcd4;
     border-color: #00bcd4;
 }
 
-.btn-primary:hover,
-.btn-primary:focus {
+.lp-btn-primary:hover,
+.lp-btn-primary:focus {
     background-color: #fff;
     color: #00bcd4;
 }
 
-.btn-secondary {
+.lp-btn-secondary {
     color: #fff;
     background-color: #007bff;
     border-color: #007bff;
 }
 
-.btn-secondary:hover,
-.btn-secondary:focus {
+.lp-btn-secondary:hover,
+.lp-btn-secondary:focus {
     background-color: #fff;
     color: #007bff;
 }
 
 
-.btn-tertiary {
+.lp-btn-tertiary {
     color: #fff;
     background-color: #6f42c1;
     border-color: #6f42c1;
 }
 
-.btn-tertiary:hover,
-.btn-tertiary:focus {
+.lp-btn-tertiary:hover,
+.lp-btn-tertiary:focus {
     background-color: #fff;
     color: #6f42c1;
     border-color: #6f42c1;
 }
 
 @media (max-width: 1750px) {
-    .card-container {
+    .lp-card-container {
         width: 75%;
     }
 }
 
 @media (max-width: 1180px) {
-    .card-container {
+    .lp-card-container {
         width: 100%;
     }
-    .card {
+    .lp-card {
         height: 100vh;
     }
-    .bigger-card {
+    .lp-bigger-card {
         height: 100vh;
         padding-top: 0;
     }

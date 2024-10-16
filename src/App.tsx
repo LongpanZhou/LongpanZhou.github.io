@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Welcome from './welcome/welcome.tsx';
 import Profile from './profile/profile.tsx';
+import Download from './download/download.tsx';
 import './App.css';
 
 const App: React.FC = () => {
@@ -36,6 +37,7 @@ const App: React.FC = () => {
           <Profile />
         </motion.div>
       )}
+      <Download src='https://github.com/LongpanZhou/LongpanZhou.github.io' alt='Download Project'/>
     </div>
   );
 };
