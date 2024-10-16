@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+//@ts-ignore
 import AnimalClicks from './index.js';
 import './clicks.css';
 

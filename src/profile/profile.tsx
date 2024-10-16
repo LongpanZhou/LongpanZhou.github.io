@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import './profile.css'
+//@ts-ignore
 import AnimalClicks from '../animalclicks/index.js';
 import gsap from 'gsap'
 import src from './profile_bgrmeoved.png'
