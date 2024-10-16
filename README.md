@@ -1,30 +1,67 @@
-# React + TypeScript + Vite
+# Welcome to my personal website!
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Hi! This website is built with **React + TypeScript + Vite**, and being currently worked on.
 
-Currently, two official plugins are available:
+## [Metaball](https://longpanzhou.github.io/#/metaball.js)
+You can find the code for the metaball background in [here](https://github.com/LongpanZhou/LongpanZhou.github.io/blob/main/src/metaball.js).
+![Metaball](./imgs/metaball.gif)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
+### Usage:
+React.js, TypeScript, JavaScript
+```javascript
+import  './metaball.js';
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+HTML
+```html
+<script src="metaball.js"/>
+```
+
+## [Animal Clicks](https://longpanzhou.github.io/#/animalclicks)
+You can find the code for cute animal cursor in [here](https://github.com/LongpanZhou/AnimalClicks)
+![AnimalClicks](./imgs/animalclicks.gif)
+
+### Usage:
+
+React.js, TypeScript, JavaScript
+
+1. Import Library (You might need to add @ts-ignore)
+```javascript
+//@ts-ignore
+import  AnimalClicks  from  './index.js';
+```
+2. Define class
+```javascript
+new AnimalClicks(['🦝'],
+    2000, 1, 180, 2.5, 4.5, 0.075, 10, 10,
+    {
+    random: false,
+    physics: true,
+    fade: true,
+    hideCursor: true
+	},
+	'24px'
+);
+```
+
+HTML
+3. Define class in `index.js` first
+```javascript
+new AnimalClicks(['🦝'],
+    2000, 1, 180, 2.5, 4.5, 0.075, 10, 10,
+    {
+    random: false,
+    physics: true,
+    fade: true,
+    hideCursor: true
+	},
+	'24px'
+);
+```
+4. Embed JavaScript
+```html
+<script src="index.js"/>
+```
+
+## Project Page
+*Currently under development for this page :)*
