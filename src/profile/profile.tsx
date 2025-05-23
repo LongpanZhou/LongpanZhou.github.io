@@ -9,7 +9,6 @@ import Linkedin from './icons/linkedin.svg'
 import Github from './icons/github.svg'
 import Leetcode from './icons/leetcode.svg'
 import Email from './icons/gmail.svg'
-import Reusme from './Longpan_Zhou__Internship_.pdf'
 
 // @ts-ignore
 const animalClicksInstance = new AnimalClicks(
@@ -29,10 +28,6 @@ const animalClicksInstance = new AnimalClicks(
     hideCursor: true,
     }
 );
-
-const Projects = () => {
-    alert('Projects page is under construction. You can check out my projects on my GitHub page for now.')
-}
 
 function profile() {
     useEffect(() => {
@@ -64,10 +59,10 @@ function profile() {
           <div className='lp-bigger-card'>
               <h1 className="lp-aboutme-title-anime">About Me</h1>
               <h1 className="lp-aboutme-subtitle">Here's a brief description about myself...</h1>
-              <p className="lp-aboutme-text">I am a Software Developer with experience in Python, Java, C++, C, Rust, JavaScript, and React. My expertise spans a range of technologies and programming languages, allowing me to build diverse applications from low-level systems applications to dynamic web interfaces. I am passionate about learning, reading and coding :)</p>
+              <p className="lp-aboutme-text">I am a Software Developer in Python, C++ and React.js, my expertise spans a range of technologies and programming languages allowing me to build softwares from low-level system applications to advanced AI research. <br/><br/>I am passionate about learning, reading and coding :) <br/>At my free time, I like to play League of Legends...</p>
               <div className="lp-button-container text-center">
-                  <a href={Reusme} className="lp-btn lp-btn-primary">Resume</a>
-                  <a href="https://github.com/LongpanZhou" onClick={Projects} className="lp-btn lp-btn-tertiary">Projects</a>
+                <a href="https://github.com/LongpanZhou" className="lp-btn lp-btn-primary">Learn more about what I do</a>
+                <a href="https://leetcode.com/u/longpanzhou/" className="lp-btn lp-btn-tertiary">Try to compete with me</a>
               </div>
           </div>
       </div>

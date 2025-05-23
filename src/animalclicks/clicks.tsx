@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 //@ts-ignore
-import AnimalClicks from './index.js';
+import AnimalClicks from 'animalclicks';
 import './clicks.css';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
