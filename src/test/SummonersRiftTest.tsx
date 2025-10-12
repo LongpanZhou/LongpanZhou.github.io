@@ -4,18 +4,91 @@ import { OrbitControls, Sky, Grid, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import './SummonersRiftTest.css'
 
-// WASD Camera Controller Component
-function CameraController({ onPositionChange, controlsRef }: { 
+// WASD Camera Controller Component with Auto-Movement
+function CameraController({ onPositionChange, onRotationChange, controlsRef, initialRotation, goingHome, startCinema }: { 
   onPositionChange: (pos: { x: number, y: number, z: number }) => void,
-  controlsRef: React.MutableRefObject<any>
+  onRotationChange: (rot: { yaw: number, pitch: number }) => void,
+  controlsRef: React.MutableRefObject<any>,
+  initialRotation: { yaw: number, pitch: number },
+  goingHome: boolean,
+  startCinema: boolean
 }) {
   const { camera } = useThree()
   const keysPressed = useRef<Set<string>>(new Set())
   const moveSpeed = 0.5
+  const isInitialized = useRef(false)
+  
+  // Auto-movement state
+  const [autoMove, setAutoMove] = useState(false)
+  const autoMoveTarget = useRef(new THREE.Vector3())
+  const autoMoveSpeed = useRef(0.02)
+  const rotationSpeed = useRef(0.01)
+  const timeOffset = useRef(Math.random() * 1000)
+  const homeStartTime = useRef<number | null>(null)
+  
+  // Auto-start cinema mode when triggered
+  useEffect(() => {
+    if (startCinema) {
+      setAutoMove(true)
+    }
+  }, [startCinema])
+  
+  // Home position animation
+  const homePosition = new THREE.Vector3(-61.2, 2.7, 49.0)
+  const homeYaw = 150
+  const homePitch = -15
+  
+  // Bounding box corners: (35,60,-40), (-170,60,-40), (-170,60,160), (35,60,160)
+  const boundingBox = {
+    minX: -170,
+    maxX: 35,
+    minY: 55,   // Slightly lower for variation (Y=60 centered)
+    maxY: 65,   // Slightly higher for variation (Y=60 centered)
+    minZ: -40,
+    maxZ: 160
+  }
+  
+  // Center of the map to look toward
+  const mapCenter = new THREE.Vector3(-67.85, 0, 60)
+
+  // Set initial camera rotation on mount (only if not going home)
+  useEffect(() => {
+    if (!isInitialized.current && !goingHome) {
+      const yawRad = THREE.MathUtils.degToRad(initialRotation.yaw)
+      const pitchRad = THREE.MathUtils.degToRad(initialRotation.pitch)
+      camera.rotation.set(pitchRad, yawRad, 0, 'YXZ')
+      isInitialized.current = true
+    }
+  }, [camera, initialRotation, goingHome])
+
+  // Initialize target when auto-movement is enabled
+  useEffect(() => {
+    if (autoMove) {
+      autoMoveTarget.current.set(
+        Math.random() * (boundingBox.maxX - boundingBox.minX) + boundingBox.minX,
+        Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY,
+        Math.random() * (boundingBox.maxZ - boundingBox.minZ) + boundingBox.minZ
+      )
+      // Randomize both movement and rotation speeds
+      autoMoveSpeed.current = 0.01 + Math.random() * 0.04
+      rotationSpeed.current = 0.005 + Math.random() * 0.015
+    }
+  }, [autoMove])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current.add(e.key.toLowerCase())
+      const key = e.key.toLowerCase()
+      
+      // Toggle auto-movement with 'C' key
+      if (key === 'c') {
+        e.preventDefault()
+        setAutoMove(prev => {
+          console.log('Toggling auto-movement:', !prev)
+          return !prev
+        })
+      } else {
+        keysPressed.current.add(key)
+      }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -31,7 +104,134 @@ function CameraController({ onPositionChange, controlsRef }: {
     }
   }, [])
 
-  useFrame(() => {
+  useFrame((state) => {
+    // Home animation mode - smoothly return to home position
+    if (goingHome) {
+      // Track start time
+      if (homeStartTime.current === null) {
+        homeStartTime.current = state.clock.elapsedTime
+      }
+      
+      const targetYawRad = THREE.MathUtils.degToRad(homeYaw)
+      const targetPitchRad = THREE.MathUtils.degToRad(homePitch)
+      
+      // Keep OrbitControls enabled - user can still move camera
+      if (controlsRef.current) {
+        controlsRef.current.enabled = true
+      }
+      
+      // Gently pull camera toward home position (slower lerp rate)
+      camera.position.lerp(homePosition, 0.01)
+      
+      // Gently pull rotation toward home orientation (slower slerp rate)
+      const targetQuaternion = new THREE.Quaternion()
+      const targetEuler = new THREE.Euler(targetPitchRad, targetYawRad, 0, 'YXZ')
+      targetQuaternion.setFromEuler(targetEuler)
+      
+      camera.quaternion.slerp(targetQuaternion, 0.01)
+      
+      // Update OrbitControls target based on camera look direction
+      if (controlsRef.current) {
+        const lookDistance = 30
+        const lookTarget = new THREE.Vector3()
+        camera.getWorldDirection(lookTarget)
+        lookTarget.multiplyScalar(lookDistance)
+        lookTarget.add(camera.position)
+        
+        controlsRef.current.target.copy(lookTarget)
+        controlsRef.current.update()
+      }
+      
+      // Calculate yaw and pitch for display
+      const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
+      const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
+      
+      // Update display
+      onPositionChange({
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z
+      })
+      onRotationChange({
+        yaw: yaw,
+        pitch: pitch
+      })
+      
+      // Keep animating to home position - never complete automatically
+      // Animation continues as long as goingHome is true
+      
+      return // Skip other controls when going home
+    } else {
+      // Reset home start time when not going home
+      homeStartTime.current = null
+    }
+    
+    // Auto-movement mode
+    if (autoMove) {
+      const time = state.clock.elapsedTime + timeOffset.current
+      
+      // Check if reached target, generate new one
+      const distanceToTarget = camera.position.distanceTo(autoMoveTarget.current)
+      if (distanceToTarget < 8) {
+        // Generate new random target within bounding box
+        autoMoveTarget.current.set(
+          Math.random() * (boundingBox.maxX - boundingBox.minX) + boundingBox.minX,
+          Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY,
+          Math.random() * (boundingBox.maxZ - boundingBox.minZ) + boundingBox.minZ
+        )
+        // Randomize both movement and rotation speeds each time we reach target
+        autoMoveSpeed.current = 0.025 + Math.random() * 0.1
+        rotationSpeed.current = 0.01 + Math.random() * 0.375
+      }
+      
+      // Smooth movement toward target with varying speed
+      const direction = new THREE.Vector3().subVectors(autoMoveTarget.current, camera.position)
+      direction.normalize()
+      
+      // Add smooth sine wave variation to speed for organic movement
+      const speedVariation = Math.sin(time * 0.3) * 0.04 + autoMoveSpeed.current
+      const movement = direction.multiplyScalar(speedVariation)
+      
+      camera.position.add(movement)
+      
+      // Camera looks toward map center with smooth variation
+      if (controlsRef.current) {
+        // Add smooth oscillation to look target for more dynamic viewing
+        const offsetX = Math.sin(time * rotationSpeed.current * 2) * 15
+        const offsetY = Math.sin(time * rotationSpeed.current * 1.5) * 8
+        const offsetZ = Math.cos(time * rotationSpeed.current * 2) * 15
+        
+        const lookTarget = new THREE.Vector3(
+          mapCenter.x + offsetX,
+          mapCenter.y + offsetY,
+          mapCenter.z + offsetZ
+        )
+        
+        // Smoothly interpolate with capped lerp to prevent snapping
+        const lerpAmount = Math.min(rotationSpeed.current * 0.5, 0.05)
+        controlsRef.current.target.lerp(lookTarget, lerpAmount)
+        controlsRef.current.update()
+      }
+      
+      // Calculate yaw and pitch from camera rotation
+      const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
+      const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
+      
+      // Update position and rotation display
+      onPositionChange({
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z
+      })
+      onRotationChange({
+        yaw: yaw,
+        pitch: pitch
+      })
+      
+      return // Skip manual controls when auto-moving
+    }
+    
+    // Manual WASD controls
     if (keysPressed.current.size === 0) return
 
     // Create direction vectors using camera's rotation matrix
@@ -78,11 +278,19 @@ function CameraController({ onPositionChange, controlsRef }: {
         controlsRef.current.update()
       }
       
-      // Update position display
+      // Calculate yaw and pitch from camera rotation
+      const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
+      const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
+      
+      // Update position and rotation display
       onPositionChange({
         x: camera.position.x,
         y: camera.position.y,
         z: camera.position.z
+      })
+      onRotationChange({
+        yaw: yaw,
+        pitch: pitch
       })
     }
   })
@@ -174,8 +382,8 @@ function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: n
           mesh.receiveShadow = true
           mesh.castShadow = false // Ground doesn't cast shadows
         } else if (meshName.includes('tower') || meshName.includes('structure')) {
-          mesh.castShadow = true
-          mesh.receiveShadow = true
+        mesh.castShadow = true
+        mesh.receiveShadow = true
         } else {
           // Disable shadows for small/decorative objects
           mesh.castShadow = false
@@ -189,7 +397,7 @@ function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: n
     
     console.log(`Material instances reduced by sharing: ${materialsCache.size} unique materials`)
   }, [scene])
-  
+
   // VRAM Optimization 6: Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -237,21 +445,32 @@ useGLTF.preload('/src/rift-opt.glb')
 function SummonersRiftTest() {
   const [isReady, setIsReady] = useState(false)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
+  const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0 })
+  const [goingHome, setGoingHome] = useState(true) // Start going home immediately
+  const [startCinema, setStartCinema] = useState(false)
+  const [showCenterPanel, setShowCenterPanel] = useState(false)
   const controlsRef = useRef<any>(null)
   
-  // Generate random camera position (only once on mount)
+  // Home position for distance calculation
+  const homePosition = { x: -61.2, y: 2.7, z: 49.0 }
+  
+  // Camera spawn at random position
   const randomCamera = useMemo(() => {
-    const distance = 50 + Math.random() * 50 // Random distance 50-100
-    const angle = Math.random() * Math.PI * 2 // Random angle around Y axis
-    const height = 20 + Math.random() * 40 // Random height 20-60
-    
+    // Random position within the map bounds
     const position = {
-      x: Math.cos(angle) * distance,
-      y: height,
-      z: Math.sin(angle) * distance
+      x: -170 + Math.random() * (35 - (-170)),
+      y: 40 + Math.random() * 60, // Y between 40-100
+      z: -40 + Math.random() * (160 - (-40))
+    }
+    
+    // Random rotation
+    const rotation = {
+      yaw: Math.random() * 360 - 180, // -180 to 180
+      pitch: -90 + Math.random() * 60 // -90 to -30
     }
     
     setCameraPos(position)
+    setCameraRotation(rotation)
     return position
   }, [])
   
@@ -264,16 +483,144 @@ function SummonersRiftTest() {
   const handleReady = () => {
     setIsReady(true)
   }
+  
+  // Handle going home
+  const handleGoHome = () => {
+    setGoingHome(true)
+  }
+  
+  // Handle start exploring - disable going home and enable cinema mode
+  const handleStartExploring = () => {
+    setGoingHome(false)
+    setStartCinema(true)
+  }
+  
+  // Check distance to home position and show panel when close
+  useEffect(() => {
+    if (goingHome) {
+      const distance = Math.sqrt(
+        Math.pow(cameraPos.x - homePosition.x, 2) +
+        Math.pow(cameraPos.y - homePosition.y, 2) +
+        Math.pow(cameraPos.z - homePosition.z, 2)
+      )
+      
+      console.log('Distance to home:', distance, 'Show panel:', distance < 4)
+      console.log('Camera pos:', cameraPos)
+      console.log('goingHome:', goingHome, 'showCenterPanel:', distance < 4)
+      
+      // Show panel when within 4 units of home position
+      if (distance < 4) {
+        console.log('SHOWING PANEL - distance:', distance)
+        setShowCenterPanel(true)
+      } else {
+        console.log('HIDING PANEL - distance:', distance)
+        setShowCenterPanel(false)
+      }
+    } else {
+      setShowCenterPanel(false)
+    }
+  }, [cameraPos, goingHome])
 
   return (
     <div className="summoners-rift-test">
-      {/* Header */}
-      <div className="test-header">
-        <div className="test-info">
-          <span>Camera Position: ({cameraPos.x.toFixed(1)}, {cameraPos.y.toFixed(1)}, {cameraPos.z.toFixed(1)})</span>
-        </div>
-        <a href="/#/" className="back-button">← Back to Home</a>
+      {/* Inline CSS for League of Legends style animations */}
+      <style>{`
+        @keyframes fadeInCenter {
+          from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+          to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        @keyframes hexGlow {
+          0%, 100% { box-shadow: 0 0 20px rgba(200, 170, 110, 0.3), 0 0 40px rgba(10, 200, 255, 0.2), inset 0 0 60px rgba(200, 170, 110, 0.1); }
+          50% { box-shadow: 0 0 30px rgba(200, 170, 110, 0.5), 0 0 60px rgba(10, 200, 255, 0.3), inset 0 0 80px rgba(200, 170, 110, 0.2); }
+        }
+        @keyframes borderPulse {
+          0%, 100% { border-color: rgba(200, 170, 110, 0.6); }
+          50% { border-color: rgba(200, 170, 110, 1); }
+        }
+      `}</style>
+      
+      {/* Fixed Camera Info - Top Left */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '20px',
+        zIndex: 1000,
+        background: 'rgba(0, 0, 0, 0.7)',
+        padding: '15px 20px',
+        borderRadius: '8px',
+        color: 'white',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        lineHeight: '1.6',
+        pointerEvents: 'none'
+      }}>
+        <div>Position: ({cameraPos.x.toFixed(1)}, {cameraPos.y.toFixed(1)}, {cameraPos.z.toFixed(1)})</div>
+        <div>Yaw: {cameraRotation.yaw.toFixed(1)}° | Pitch: {cameraRotation.pitch.toFixed(1)}°</div>
       </div>
+
+      {/* Back to Home Button - Top Right - LoL Style */}
+      {!goingHome && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <button
+            onClick={handleGoHome}
+            style={{
+              background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.9) 100%)',
+              border: '2px solid #C8AA6E',
+              color: '#C8AA6E',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              padding: '12px 24px',
+              cursor: 'pointer',
+              fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+              clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+              boxShadow: '0 0 15px rgba(200, 170, 110, 0.4), inset 0 0 20px rgba(200, 170, 110, 0.1)',
+              transition: 'all 0.3s ease',
+              position: 'relative',
+              backdropFilter: 'blur(5px)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.border = '2px solid #0AC8FF'
+              e.currentTarget.style.color = '#0AC8FF'
+              e.currentTarget.style.boxShadow = '0 0 25px rgba(10, 200, 255, 0.6), inset 0 0 30px rgba(10, 200, 255, 0.2)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.border = '2px solid #C8AA6E'
+              e.currentTarget.style.color = '#C8AA6E'
+              e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.4), inset 0 0 20px rgba(200, 170, 110, 0.1)'
+              e.currentTarget.style.transform = 'translateY(0)'
+            }}
+          >
+            {/* Corner accents */}
+            <span style={{
+              position: 'absolute',
+              top: '3px',
+              right: '3px',
+              width: '8px',
+              height: '8px',
+              borderTop: '1px solid #C8AA6E',
+              borderRight: '1px solid #C8AA6E'
+            }} />
+            <span style={{
+              position: 'absolute',
+              bottom: '3px',
+              left: '3px',
+              width: '8px',
+              height: '8px',
+              borderBottom: '1px solid #C8AA6E',
+              borderLeft: '1px solid #C8AA6E'
+            }} />
+            ← Back to Home
+          </button>
+        </div>
+      )}
 
       {/* Three.js Canvas - VRAM Optimization 8: Performance settings */}
       <Canvas
@@ -294,26 +641,17 @@ function SummonersRiftTest() {
       >
         {/* Background */}
         <color attach="background" args={['#0a1428']} />
-        <fog attach="fog" args={['#0a1428', 50, 200]} />
+        <fog attach="fog" args={['#0a1428', 75, 200]} />
         
-        {/* Lighting - VRAM Optimization 7: Reduced shadow map size */}
-        <ambientLight intensity={0.5} />
+        {/* Lighting - Sun directly above map at (-75, 150, 75) */}
+        <ambientLight intensity={6} />
         <directionalLight
-          position={[50, 50, 25]}
-          intensity={1}
-          castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
-          shadow-camera-near={0.5}
-          shadow-camera-far={500}
-          shadow-camera-left={-50}
-          shadow-camera-right={50}
-          shadow-camera-top={50}
-          shadow-camera-bottom={-50}
-          shadow-bias={-0.0001}
+          position={[-75, 250, 75]}
+          intensity={6}
+          castShadow={false}
         />
-        <pointLight position={[-50, 30, -50]} intensity={0.5} color="#00d4ff" />
-        <pointLight position={[50, 30, 50]} intensity={0.5} color="#c8aa6e" />
+        <pointLight position={[-75, 200, 75]} intensity={300} distance={300} decay={2} />
+        <hemisphereLight args={['#ffffff', '#ffffff', 4]} />
 
         {/* Sky */}
         <Sky
@@ -344,7 +682,14 @@ function SummonersRiftTest() {
         </Suspense>
 
         {/* WASD Camera Controller */}
-        <CameraController onPositionChange={setCameraPos} controlsRef={controlsRef} />
+        <CameraController 
+          onPositionChange={setCameraPos} 
+          onRotationChange={setCameraRotation} 
+          controlsRef={controlsRef}
+          initialRotation={cameraRotation}
+          goingHome={goingHome}
+          startCinema={startCinema}
+        />
 
         {/* Controls */}
         <OrbitControls
@@ -355,14 +700,24 @@ function SummonersRiftTest() {
           minDistance={10}
           maxDistance={200}
           maxPolarAngle={Math.PI / 2}
-          target={[0, 0, 0]}
+          target={[-67.85, 0, 60]}
+          enableDamping={true}
+          dampingFactor={0.05}
           onChange={(e) => {
             if (e?.target) {
               const camera = e.target.object
+              // Update position
               setCameraPos({
                 x: camera.position.x,
                 y: camera.position.y,
                 z: camera.position.z
+              })
+              // Update rotation
+              const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
+              const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
+              setCameraRotation({
+                yaw: yaw,
+                pitch: pitch
               })
             }
           }}
@@ -377,17 +732,202 @@ function SummonersRiftTest() {
         </div>
       )}
 
-      {/* Controls Info */}
+      {/* Center Content - League of Legends Style - Only when close to home */}
+      {goingHome && showCenterPanel && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 999,
+          background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.95) 100%)',
+          padding: '50px 70px',
+          clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))',
+          color: 'white',
+          fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+          textAlign: 'center',
+          minWidth: '500px',
+          border: '3px solid rgba(200, 170, 110, 0.6)',
+          opacity: 0,
+          animation: 'fadeInCenter 1.5s ease-in forwards, hexGlow 3s infinite, borderPulse 2s infinite',
+          backdropFilter: 'blur(10px)'
+        }}>
+          {/* Close Button - Top Right */}
+          <button
+            onClick={handleStartExploring}
+            style={{
+              position: 'absolute',
+              top: '15px',
+              right: '15px',
+              background: 'transparent',
+              border: '2px solid #C8AA6E',
+              color: '#C8AA6E',
+              fontSize: '20px',
+              fontWeight: 'bold',
+              width: '35px',
+              height: '35px',
+              cursor: 'pointer',
+              clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: '1'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.border = '2px solid #0AC8FF'
+              e.currentTarget.style.color = '#0AC8FF'
+              e.currentTarget.style.background = 'rgba(10, 200, 255, 0.1)'
+              e.currentTarget.style.transform = 'rotate(90deg)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.border = '2px solid #C8AA6E'
+              e.currentTarget.style.color = '#C8AA6E'
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.transform = 'rotate(0deg)'
+            }}
+          >
+            ×
+          </button>
+          
+          {/* Hextech corner accents */}
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            width: '30px',
+            height: '30px',
+            borderTop: '2px solid #C8AA6E',
+            borderLeft: '2px solid #C8AA6E'
+          }} />
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            width: '30px',
+            height: '30px',
+            borderTop: '2px solid #C8AA6E',
+            borderRight: '2px solid #C8AA6E'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '10px',
+            left: '10px',
+            width: '30px',
+            height: '30px',
+            borderBottom: '2px solid #C8AA6E',
+            borderLeft: '2px solid #C8AA6E'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '10px',
+            right: '10px',
+            width: '30px',
+            height: '30px',
+            borderBottom: '2px solid #C8AA6E',
+            borderRight: '2px solid #C8AA6E'
+          }} />
+
+          {/* Title with LoL gold */}
+          <h2 style={{ 
+            margin: '0 0 10px 0', 
+            fontSize: '36px',
+            fontWeight: 'bold',
+            color: '#C8AA6E',
+            textTransform: 'uppercase',
+            letterSpacing: '3px',
+            textShadow: '0 0 20px rgba(200, 170, 110, 0.5), 0 0 40px rgba(10, 200, 255, 0.3)'
+          }}>
+            Summoner's Rift
+          </h2>
+          
+          {/* Subtitle */}
+          <div style={{
+            fontSize: '14px',
+            color: '#0AC8FF',
+            letterSpacing: '2px',
+            marginBottom: '30px',
+            textTransform: 'uppercase'
+          }}>
+            ⬡ The Fields of Justice ⬡
+          </div>
+
+          {/* Content */}
+          <div style={{ 
+            fontSize: '16px', 
+            lineHeight: '2',
+            color: '#d4d4d4',
+            marginBottom: '25px'
+          }}>
+            <p style={{ margin: '15px 0', fontStyle: 'italic' }}>
+              "Welcome, Summoner"
+            </p>
+            <p style={{ margin: '15px 0' }}>
+              The ancient battleground awaits
+            </p>
+            <p style={{ margin: '15px 0', color: '#C8AA6E' }}>
+              ⬡ Prepare for glory ⬡
+            </p>
+          </div>
+
+          {/* Divider line */}
+          <div style={{
+            height: '2px',
+            background: 'linear-gradient(90deg, transparent, #C8AA6E, transparent)',
+            margin: '25px 0',
+            boxShadow: '0 0 10px rgba(200, 170, 110, 0.5)'
+          }} />
+
+          {/* Start Exploring Button */}
+          <button
+            onClick={handleStartExploring}
+            style={{
+              background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
+              border: '2px solid #F0E6D2',
+              color: '#0A1428',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              padding: '15px 40px',
+              borderRadius: '0',
+              clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 0 20px rgba(200, 170, 110, 0.5)',
+              fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+              marginTop: '10px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)'
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(200, 170, 110, 0.8)'
+              e.currentTarget.style.background = 'linear-gradient(135deg, #F0E6D2 0%, #C8AA6E 100%)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(200, 170, 110, 0.5)'
+              e.currentTarget.style.background = 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)'
+            }}
+          >
+            ⬢ Start Exploring ⬢
+          </button>
+        </div>
+      )}
+
+      {/* Controls Info - Hidden when going home */}
+      {!goingHome && (
       <div className="controls-info">
         <h3>Controls</h3>
         <ul>
-          <li><strong>W/A/S/D:</strong> Move camera forward/left/back/right</li>
-          <li><strong>Q/E:</strong> Move camera down/up</li>
-          <li><strong>Left Click + Drag:</strong> Rotate view</li>
+            <li><strong>C:</strong> Toggle auto-movement (cinematic mode)</li>
+            <li><strong>W/A/S/D:</strong> Move camera forward/left/back/right</li>
+            <li><strong>Q/E:</strong> Move camera down/up</li>
+            <li><strong>Left Click + Drag:</strong> Rotate view</li>
           <li><strong>Right Click + Drag:</strong> Pan camera</li>
           <li><strong>Scroll:</strong> Zoom in/out</li>
         </ul>
       </div>
+      )}
     </div>
   )
 }
