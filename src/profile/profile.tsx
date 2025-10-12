@@ -59,7 +59,7 @@ function profile() {
           <div className='lp-bigger-card'>
               <h1 className="lp-aboutme-title-anime">About Me</h1>
               <h1 className="lp-aboutme-subtitle">Here's a brief description about myself...</h1>
-              <p className="lp-aboutme-text">I am a Software Developer in Python, C++ and React.js, my expertise spans a range of technologies and programming languages allowing me to build softwares from low-level system applications to advanced AI research. <br/><br/>I am passionate about learning, reading and coding :) <br/>At my free time, I like to play League of Legends...</p>
+              <p className="lp-aboutme-text">I'm a Software Developer specializing in Python, C++, and React.js. My expertise spans a diverse range of technologies, enabling me to build everything from low-level system applications to cutting-edge AI solutions. <br/><br/>I'm passionate about continuous learning, problem-solving, and crafting elegant code. When I'm not coding, you'll find me reading tech articles or competing in League of Legends!</p>
               <div className="lp-button-container text-center">
                 <a href="https://github.com/LongpanZhou" className="lp-btn lp-btn-primary">Learn more about what I do</a>
                 <a href="https://leetcode.com/u/longpanzhou/" className="lp-btn lp-btn-tertiary">Try to compete with me</a>
