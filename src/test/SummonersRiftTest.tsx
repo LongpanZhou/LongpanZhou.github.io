@@ -16,15 +16,12 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
   const { camera } = useThree()
   const keysPressed = useRef<Set<string>>(new Set())
   const moveSpeed = 0.5
-  const isInitialized = useRef(false)
   
   // Auto-movement state
   const [autoMove, setAutoMove] = useState(false)
   const autoMoveTarget = useRef(new THREE.Vector3())
   const autoMoveSpeed = useRef(0.02)
   const rotationSpeed = useRef(0.01)
-  const timeOffset = useRef(Math.random() * 1000)
-  const homeStartTime = useRef<number | null>(null)
   
   // Auto-start cinema mode when triggered
   useEffect(() => {
@@ -33,33 +30,21 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
     }
   }, [startCinema])
   
-  // Home position animation
+  // Home position
   const homePosition = new THREE.Vector3(-61.2, 2.7, 49.0)
-  const homeYaw = 150
-  const homePitch = -15
   
   // Bounding box corners: (35,60,-40), (-170,60,-40), (-170,60,160), (35,60,160)
   const boundingBox = {
     minX: -170,
     maxX: 35,
-    minY: 55,   // Slightly lower for variation (Y=60 centered)
-    maxY: 65,   // Slightly higher for variation (Y=60 centered)
+    minY: 55,
+    maxY: 65,
     minZ: -40,
     maxZ: 160
   }
   
   // Center of the map to look toward
   const mapCenter = new THREE.Vector3(-67.85, 0, 60)
-
-  // Set initial camera rotation on mount (only if not going home)
-  useEffect(() => {
-    if (!isInitialized.current && !goingHome) {
-      const yawRad = THREE.MathUtils.degToRad(initialRotation.yaw)
-      const pitchRad = THREE.MathUtils.degToRad(initialRotation.pitch)
-      camera.rotation.set(pitchRad, yawRad, 0, 'YXZ')
-      isInitialized.current = true
-    }
-  }, [camera, initialRotation, goingHome])
 
   // Initialize target when auto-movement is enabled
   useEffect(() => {
@@ -69,7 +54,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
         Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY,
         Math.random() * (boundingBox.maxZ - boundingBox.minZ) + boundingBox.minZ
       )
-      // Randomize both movement and rotation speeds
       autoMoveSpeed.current = 0.01 + Math.random() * 0.04
       rotationSpeed.current = 0.005 + Math.random() * 0.015
     }
@@ -107,20 +91,19 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
   useFrame((state) => {
     // Home animation mode - smoothly return to home position
     if (goingHome) {
-      // Track start time
-      if (homeStartTime.current === null) {
-        homeStartTime.current = state.clock.elapsedTime
-      }
-      
-      const targetYawRad = THREE.MathUtils.degToRad(homeYaw)
-      const targetPitchRad = THREE.MathUtils.degToRad(homePitch)
+    const targetYaw = 150 // Your desired home yaw
+    const targetPitch = -15 // Your desired home pitch
+    
+    // Convert to radians
+    const targetYawRad = THREE.MathUtils.degToRad(targetYaw)
+    const targetPitchRad = THREE.MathUtils.degToRad(targetPitch)
       
       // Keep OrbitControls enabled - user can still move camera
       if (controlsRef.current) {
         controlsRef.current.enabled = true
       }
       
-      // Gently pull camera toward home position (slower lerp rate)
+      // Gently pull camera toward home position
       camera.position.lerp(homePosition, 0.01)
       
       // Gently pull rotation toward home orientation (slower slerp rate)
@@ -157,18 +140,12 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
         pitch: pitch
       })
       
-      // Keep animating to home position - never complete automatically
-      // Animation continues as long as goingHome is true
-      
       return // Skip other controls when going home
-    } else {
-      // Reset home start time when not going home
-      homeStartTime.current = null
     }
     
     // Auto-movement mode
     if (autoMove) {
-      const time = state.clock.elapsedTime + timeOffset.current
+      const time = state.clock.elapsedTime
       
       // Check if reached target, generate new one
       const distanceToTarget = camera.position.distanceTo(autoMoveTarget.current)
@@ -179,7 +156,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
           Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY,
           Math.random() * (boundingBox.maxZ - boundingBox.minZ) + boundingBox.minZ
         )
-        // Randomize both movement and rotation speeds each time we reach target
         autoMoveSpeed.current = 0.025 + Math.random() * 0.1
         rotationSpeed.current = 0.01 + Math.random() * 0.375
       }
@@ -188,7 +164,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
       const direction = new THREE.Vector3().subVectors(autoMoveTarget.current, camera.position)
       direction.normalize()
       
-      // Add smooth sine wave variation to speed for organic movement
       const speedVariation = Math.sin(time * 0.3) * 0.04 + autoMoveSpeed.current
       const movement = direction.multiplyScalar(speedVariation)
       
@@ -196,7 +171,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
       
       // Camera looks toward map center with smooth variation
       if (controlsRef.current) {
-        // Add smooth oscillation to look target for more dynamic viewing
         const offsetX = Math.sin(time * rotationSpeed.current * 2) * 15
         const offsetY = Math.sin(time * rotationSpeed.current * 1.5) * 8
         const offsetZ = Math.cos(time * rotationSpeed.current * 2) * 15
@@ -207,7 +181,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
           mapCenter.z + offsetZ
         )
         
-        // Smoothly interpolate with capped lerp to prevent snapping
         const lerpAmount = Math.min(rotationSpeed.current * 0.5, 0.05)
         controlsRef.current.target.lerp(lookTarget, lerpAmount)
         controlsRef.current.update()
@@ -238,17 +211,17 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
     const forward = new THREE.Vector3()
     const right = new THREE.Vector3()
     
-    // Get camera's forward direction (negative Z in camera space)
+    // Get camera's forward direction
     camera.getWorldDirection(forward)
     forward.y = 0 // Keep movement on XZ plane
     forward.normalize()
     
-    // Get camera's right direction (cross product of forward and world up)
+    // Get camera's right direction
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
     
     const movement = new THREE.Vector3()
 
-    // Calculate movement based on keys pressed (clone vectors to avoid mutation)
+    // Calculate movement based on keys pressed
     if (keysPressed.current.has('w')) {
       movement.add(forward.clone().multiplyScalar(moveSpeed))
     }
@@ -298,28 +271,18 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, ini
   return null
 }
 
-function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: number) => void, onReady?: () => void }) {
+function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
   const modelRef = useRef<THREE.Group>(null)
   
-  // Load optimized Summoner's Rift with full textures!
-  const { scene } = useGLTF('/src/rift-opt.glb', true, true, (loader) => {
-    loader.manager.onProgress = (_url, loaded, total) => {
-      const progress = (loaded / total) * 100
-      if (onProgress) onProgress(progress)
-    }
-  })
+  // Load optimized Summoner's Rift with full textures
+  const { scene } = useGLTF('/src/rift-opt.glb', true, true)
 
-  // Ensure loading reaches 100% when model is ready
+  // Notify when model is ready
   useEffect(() => {
-    if (scene) {
-      if (onProgress) {
-        onProgress(100)
-      }
-      if (onReady) {
-        onReady()
-      }
+    if (scene && onReady) {
+      onReady()
     }
-  }, [scene, onProgress, onReady])
+  }, [scene, onReady])
 
   // VRAM Optimization: Process materials and textures
   useMemo(() => {
@@ -347,13 +310,13 @@ function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: n
               texture.minFilter = THREE.LinearMipmapLinearFilter
               texture.magFilter = THREE.LinearFilter
               texture.generateMipmaps = true
-              texture.anisotropy = 2 // Reduce from default 16 to save VRAM
+              texture.anisotropy = 2
             }
             
             // VRAM Optimization 3: Fix material rendering and optimize
             const standardMat = material as THREE.MeshStandardMaterial
             
-            // Ensure proper rendering - no transparency issues
+            // Ensure proper rendering
             standardMat.side = THREE.FrontSide
             standardMat.transparent = false
             standardMat.opacity = 1.0
@@ -365,7 +328,7 @@ function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: n
               standardMat.normalScale?.set(0.5, 0.5)
             }
             
-            // Only set constant values if maps don't exist (don't dispose existing maps)
+            // Only set constant values if maps don't exist
             if (!standardMat.roughnessMap) {
               standardMat.roughness = 0.8
             }
@@ -375,22 +338,21 @@ function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: n
           }
         }
         
-        // VRAM Optimization 4: Selectively enable shadows (not all meshes need them)
+        // VRAM Optimization 4: Selectively enable shadows
         const meshName = mesh.name.toLowerCase()
-        // Only enable shadows for important/large objects
         if (meshName.includes('ground') || meshName.includes('terrain') || meshName.includes('base')) {
           mesh.receiveShadow = true
-          mesh.castShadow = false // Ground doesn't cast shadows
+          mesh.castShadow = false
         } else if (meshName.includes('tower') || meshName.includes('structure')) {
-        mesh.castShadow = true
-        mesh.receiveShadow = true
+          mesh.castShadow = true
+          mesh.receiveShadow = true
         } else {
           // Disable shadows for small/decorative objects
           mesh.castShadow = false
           mesh.receiveShadow = false
         }
         
-        // VRAM Optimization 5: Frustum culling (enabled by default but ensure it's on)
+        // VRAM Optimization 5: Frustum culling
         mesh.frustumCulled = true
       }
     })
@@ -425,13 +387,6 @@ function SummonersRiftModel({ onProgress, onReady }: { onProgress?: (progress: n
     }
   }, [scene])
 
-  // Rotation disabled - static model
-  // useFrame(() => {
-  //   if (modelRef.current) {
-  //     modelRef.current.rotation.y += 0.001
-  //   }
-  // })
-
   return (
     <group ref={modelRef}>
       <primitive object={scene} scale={0.01} position={[0, 0, 0]} />
@@ -446,38 +401,31 @@ function SummonersRiftTest() {
   const [isReady, setIsReady] = useState(false)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
   const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0 })
-  const [goingHome, setGoingHome] = useState(true) // Start going home immediately
+  const [goingHome, setGoingHome] = useState(true)
   const [startCinema, setStartCinema] = useState(false)
   const [showCenterPanel, setShowCenterPanel] = useState(false)
   const controlsRef = useRef<any>(null)
   
   // Home position for distance calculation
-  const homePosition = { x: -61.2, y: 2.7, z: 49.0 }
+  const homePosition = { x: -61, y: 2.7, z: 49.0 }
   
   // Camera spawn at random position
   const randomCamera = useMemo(() => {
-    // Random position within the map bounds
     const position = {
       x: -170 + Math.random() * (35 - (-170)),
-      y: 40 + Math.random() * 60, // Y between 40-100
+      y: 40 + Math.random() * 60,
       z: -40 + Math.random() * (160 - (-40))
     }
     
-    // Random rotation
     const rotation = {
-      yaw: Math.random() * 360 - 180, // -180 to 180
-      pitch: -90 + Math.random() * 60 // -90 to -30
+      yaw: Math.random() * 360 - 180,
+      pitch: -90 + Math.random() * 60
     }
     
     setCameraPos(position)
     setCameraRotation(rotation)
     return position
   }, [])
-  
-  // Handle progress updates
-  const handleProgress = (_progress: number) => {
-    // Progress tracking removed, just keep for compatibility
-  }
   
   // Handle model ready
   const handleReady = () => {
@@ -495,6 +443,45 @@ function SummonersRiftTest() {
     setStartCinema(true)
   }
   
+  // Custom cursor and cleanup
+  useEffect(() => {
+    // Force custom cursor styling
+    const style = document.createElement('style')
+    style.id = 'summoners-rift-cursor-override'
+    style.innerHTML = `
+      body, body *, .summoners-rift-test, .summoners-rift-test * {
+        cursor: url(/src/cursor.png), auto !important;
+      }
+      .hide-cursor, .hide-cursor * {
+        cursor: url(/src/cursor.png), auto !important;
+      }
+      .dropping-text {
+        display: none !important;
+      }
+    `
+    document.head.appendChild(style)
+    
+    // Remove animal clicks elements
+    const removeAnimalClicks = () => {
+      document.body.classList.remove('hide-cursor')
+      const animalElements = document.querySelectorAll('.dropping-text')
+      animalElements.forEach(el => el.remove())
+    }
+    
+    // Use MutationObserver for better performance
+    removeAnimalClicks()
+    const observer = new MutationObserver(removeAnimalClicks)
+    observer.observe(document.body, { childList: true, subtree: true })
+    
+    return () => {
+      observer.disconnect()
+      const customStyle = document.getElementById('summoners-rift-cursor-override')
+      if (customStyle) {
+        customStyle.remove()
+      }
+    }
+  }, [])
+
   // Check distance to home position and show panel when close
   useEffect(() => {
     if (goingHome) {
@@ -504,25 +491,14 @@ function SummonersRiftTest() {
         Math.pow(cameraPos.z - homePosition.z, 2)
       )
       
-      console.log('Distance to home:', distance, 'Show panel:', distance < 4)
-      console.log('Camera pos:', cameraPos)
-      console.log('goingHome:', goingHome, 'showCenterPanel:', distance < 4)
-      
-      // Show panel when within 4 units of home position
-      if (distance < 4) {
-        console.log('SHOWING PANEL - distance:', distance)
-        setShowCenterPanel(true)
-      } else {
-        console.log('HIDING PANEL - distance:', distance)
-        setShowCenterPanel(false)
-      }
+      setShowCenterPanel(distance < 4)
     } else {
       setShowCenterPanel(false)
     }
   }, [cameraPos, goingHome])
 
   return (
-    <div className="summoners-rift-test">
+    <div className="summoners-rift-test" style={{ cursor: 'url(/src/cursor.png), auto' }}>
       {/* Inline CSS for League of Legends style animations */}
       <style>{`
         @keyframes fadeInCenter {
@@ -536,6 +512,9 @@ function SummonersRiftTest() {
         @keyframes borderPulse {
           0%, 100% { border-color: rgba(200, 170, 110, 0.6); }
           50% { border-color: rgba(200, 170, 110, 1); }
+        }
+        .summoners-rift-test * {
+          cursor: url(/src/cursor.png), auto !important;
         }
       `}</style>
       
@@ -622,7 +601,7 @@ function SummonersRiftTest() {
         </div>
       )}
 
-      {/* Three.js Canvas - VRAM Optimization 8: Performance settings */}
+      {/* Three.js Canvas */}
       <Canvas
         camera={{ 
           position: [randomCamera.x, randomCamera.y, randomCamera.z],
@@ -633,17 +612,17 @@ function SummonersRiftTest() {
         shadows
         gl={{ 
           powerPreference: "high-performance",
-          antialias: false, // Disable for VRAM savings
+          antialias: false,
           stencil: false,
           depth: true
         }}
-        dpr={[1, 1.5]} // Limit pixel ratio to save VRAM
+        dpr={[1, 1.5]}
       >
         {/* Background */}
         <color attach="background" args={['#0a1428']} />
         <fog attach="fog" args={['#0a1428', 75, 200]} />
         
-        {/* Lighting - Sun directly above map at (-75, 150, 75) */}
+        {/* Lighting */}
         <ambientLight intensity={6} />
         <directionalLight
           position={[-75, 250, 75]}
@@ -678,7 +657,7 @@ function SummonersRiftTest() {
 
         {/* Load the Summoner's Rift Model */}
         <Suspense fallback={<LoadingIndicator />}>
-          <SummonersRiftModel onProgress={handleProgress} onReady={handleReady} />
+          <SummonersRiftModel onReady={handleReady} />
         </Suspense>
 
         {/* WASD Camera Controller */}
@@ -755,39 +734,43 @@ function SummonersRiftTest() {
           {/* Close Button - Top Right */}
           <button
             onClick={handleStartExploring}
+            aria-label="Close panel"
             style={{
               position: 'absolute',
-              top: '15px',
-              right: '15px',
+              top: '12px',
+              right: '12px',
               background: 'transparent',
               border: '2px solid #C8AA6E',
               color: '#C8AA6E',
               fontSize: '20px',
               fontWeight: 'bold',
-              width: '35px',
-              height: '35px',
+              width: '28px',
+              height: '28px',
+              padding: '0',
               cursor: 'pointer',
-              clipPath: 'polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px)',
-              transition: 'all 0.3s ease',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              lineHeight: '1'
+              lineHeight: '1',
+              zIndex: 1001,
+              boxSizing: 'content-box'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.border = '2px solid #0AC8FF'
               e.currentTarget.style.color = '#0AC8FF'
-              e.currentTarget.style.background = 'rgba(10, 200, 255, 0.1)'
-              e.currentTarget.style.transform = 'rotate(90deg)'
+              e.currentTarget.style.background = 'rgba(10, 200, 255, 0.06)'
+              const span = e.currentTarget.querySelector('span') as HTMLElement | null
+              if (span) span.style.transform = 'rotate(90deg)'
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.border = '2px solid #C8AA6E'
               e.currentTarget.style.color = '#C8AA6E'
               e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.transform = 'rotate(0deg)'
+              const span = e.currentTarget.querySelector('span') as HTMLElement | null
+              if (span) span.style.transform = 'rotate(0deg)'
             }}
           >
-            ×
+            <span style={{ display: 'inline-block', transition: 'transform 0.18s ease', transform: 'rotate(0deg)' }}>×</span>
           </button>
           
           {/* Hextech corner accents */}
@@ -955,4 +938,3 @@ function LoadingIndicator() {
 }
 
 export default SummonersRiftTest
-
