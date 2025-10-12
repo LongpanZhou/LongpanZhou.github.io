@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Welcome from './welcome/welcome.tsx';
 import Profile from './profile/profile.tsx';
 import Download from './download/download.tsx';
+import MetaballBackground from './components/MetaballBackground.tsx';
 import './App.css';
 
 const App: React.FC = () => {
@@ -25,6 +26,7 @@ const App: React.FC = () => {
 
   return (
     <div>
+      <MetaballBackground />
       {showWelcome && <Welcome />}
       {showProfile && (
         <motion.div
