@@ -3,6 +3,10 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Sky, Grid, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import './SummonersRift.css'
+import Email from '../profile/icons/gmail.svg'
+import Linkedin from '../profile/icons/linkedin.svg'
+import Github from '../profile/icons/github.svg'
+import Leetcode from '../profile/icons/leetcode.svg'
 
 // WASD Camera Controller Component with Auto-Movement
 function CameraController({ onPositionChange, onRotationChange, controlsRef, initialRotation, goingHome, startCinema }: { 
@@ -777,17 +781,19 @@ function SummonersRift() {
           left: '50%',
           transform: 'translate(-50%, -50%)',
           zIndex: 999,
-          background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.95) 100%)',
-          padding: '50px 70px',
-          clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))',
+          background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.98) 0%, rgba(0, 20, 40, 0.98) 100%)',
+          padding: '60px 80px',
+          clipPath: 'polygon(0 0, calc(100% - 25px) 0, 100% 25px, 100% 100%, 25px 100%, 0 calc(100% - 25px))',
           color: 'white',
           fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
           textAlign: 'center',
-          minWidth: '500px',
-          border: '3px solid rgba(200, 170, 110, 0.6)',
+          minWidth: '600px',
+          maxWidth: '700px',
+          border: '3px solid rgba(200, 170, 110, 0.8)',
           opacity: 0,
           animation: 'fadeInCenter 1.5s ease-in forwards, hexGlow 3s infinite, borderPulse 2s infinite',
-          backdropFilter: 'blur(10px)'
+          backdropFilter: 'blur(15px)',
+          boxShadow: '0 0 40px rgba(200, 170, 110, 0.3), inset 0 0 60px rgba(0, 0, 0, 0.3)'
         }}>
           {/* Close Button - Top Right */}
           <button
@@ -795,15 +801,15 @@ function SummonersRift() {
             aria-label="Close panel"
             style={{
               position: 'absolute',
-              top: '12px',
-              right: '12px',
+              top: '15px',
+              right: '15px',
               background: 'transparent',
               border: '2px solid #C8AA6E',
               color: '#C8AA6E',
               fontSize: '20px',
               fontWeight: 'bold',
-              width: '28px',
-              height: '28px',
+              width: '32px',
+              height: '32px',
               padding: '0',
               cursor: 'pointer',
               display: 'flex',
@@ -811,12 +817,13 @@ function SummonersRift() {
               justifyContent: 'center',
               lineHeight: '1',
               zIndex: 1001,
-              boxSizing: 'content-box'
+              boxSizing: 'content-box',
+              transition: 'all 0.3s ease'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.border = '2px solid #0AC8FF'
               e.currentTarget.style.color = '#0AC8FF'
-              e.currentTarget.style.background = 'rgba(10, 200, 255, 0.06)'
+              e.currentTarget.style.background = 'rgba(10, 200, 255, 0.1)'
               const span = e.currentTarget.querySelector('span') as HTMLElement | null
               if (span) span.style.transform = 'rotate(90deg)'
             }}
@@ -828,87 +835,237 @@ function SummonersRift() {
               if (span) span.style.transform = 'rotate(0deg)'
             }}
           >
-            <span style={{ display: 'inline-block', transition: 'transform 0.18s ease', transform: 'rotate(0deg)' }}>×</span>
+            <span style={{ display: 'inline-block', transition: 'transform 0.3s ease', transform: 'rotate(0deg)' }}>×</span>
           </button>
           
-          {/* Hextech corner accents */}
+          {/* Hextech corner accents - Enhanced */}
           <div style={{
             position: 'absolute',
-            top: '10px',
-            left: '10px',
-            width: '30px',
-            height: '30px',
-            borderTop: '2px solid #C8AA6E',
-            borderLeft: '2px solid #C8AA6E'
-          }} />
-          <div style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            width: '30px',
-            height: '30px',
-            borderTop: '2px solid #C8AA6E',
-            borderRight: '2px solid #C8AA6E'
-          }} />
-          <div style={{
-            position: 'absolute',
-            bottom: '10px',
-            left: '10px',
-            width: '30px',
-            height: '30px',
-            borderBottom: '2px solid #C8AA6E',
-            borderLeft: '2px solid #C8AA6E'
-          }} />
-          <div style={{
-            position: 'absolute',
-            bottom: '10px',
-            right: '10px',
-            width: '30px',
-            height: '30px',
-            borderBottom: '2px solid #C8AA6E',
-            borderRight: '2px solid #C8AA6E'
+            top: '12px',
+            right: '12px',
+            width: '40px',
+            height: '40px',
+            borderTop: '3px solid #C8AA6E',
+            borderRight: '3px solid #C8AA6E',
+            boxShadow: '0 0 10px rgba(200, 170, 110, 0.5)'
           }} />
 
-          {/* Title with LoL gold */}
+          {/* Rank Badge Style Accent */}
+          <div style={{
+            position: 'absolute',
+            top: '0px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
+            padding: '8px 30px',
+            clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            letterSpacing: '2px',
+            color: '#0A1428',
+            textTransform: 'uppercase',
+            boxShadow: '0 4px 15px rgba(200, 170, 110, 0.6)'
+          }}>
+            ⬢ Summoner Profile ⬢
+          </div>
+
+          {/* Title with LoL gold - Enhanced */}
           <h2 style={{ 
-            margin: '0 0 10px 0', 
-            fontSize: '36px',
+            margin: '30px 0 15px 0', 
+            fontSize: '42px',
             fontWeight: 'bold',
             color: '#C8AA6E',
             textTransform: 'uppercase',
-            letterSpacing: '3px',
-            textShadow: '0 0 20px rgba(200, 170, 110, 0.5), 0 0 40px rgba(10, 200, 255, 0.3)'
+            letterSpacing: '4px',
+            textShadow: '0 0 25px rgba(200, 170, 110, 0.6), 0 0 50px rgba(10, 200, 255, 0.4)',
+            lineHeight: '1.2'
           }}>
-            Summoner's Rift
+            Longpan Zhou
           </h2>
           
-          {/* Subtitle */}
+          {/* Role Badge */}
           <div style={{
-            fontSize: '14px',
-            color: '#0AC8FF',
-            letterSpacing: '2px',
+            display: 'inline-block',
+            background: 'rgba(10, 200, 255, 0.1)',
+            border: '2px solid #0AC8FF',
+            padding: '8px 25px',
             marginBottom: '30px',
-            textTransform: 'uppercase'
+            clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
+            fontSize: '13px',
+            color: '#0AC8FF',
+            letterSpacing: '3px',
+            textTransform: 'uppercase',
+            fontWeight: 'bold',
+            boxShadow: '0 0 20px rgba(10, 200, 255, 0.3)'
           }}>
-            ⬡ The Fields of Justice ⬡
+            ⬡ Software Developer ⬡
           </div>
 
-          {/* Content */}
+          {/* Quote Section */}
           <div style={{ 
-            fontSize: '16px', 
-            lineHeight: '2',
+            fontSize: '18px', 
+            lineHeight: '1.8',
             color: '#d4d4d4',
-            marginBottom: '25px'
+            marginBottom: '35px',
+            padding: '20px 0',
+            borderTop: '1px solid rgba(200, 170, 110, 0.3)',
+            borderBottom: '1px solid rgba(200, 170, 110, 0.3)'
           }}>
-            <p style={{ margin: '15px 0', fontStyle: 'italic' }}>
-              "Welcome, Summoner"
+            <p style={{ margin: '0', fontStyle: 'italic', color: '#F0E6D2' }}>
+              "I code, sleep, and repeat."
             </p>
-            <p style={{ margin: '15px 0' }}>
-              The ancient battleground awaits
-            </p>
-            <p style={{ margin: '15px 0', color: '#C8AA6E' }}>
-              ⬡ Prepare for glory ⬡
-            </p>
+          </div>
+
+          {/* Social Links - Enhanced LoL Style */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '15px',
+            marginBottom: '35px'
+          }}>
+            <a 
+              href="mailto:patrickzhoul123@gmail.com" 
+              title="Email"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '50px',
+                height: '50px',
+                background: 'rgba(200, 170, 110, 0.1)',
+                border: '2px solid #C8AA6E',
+                color: '#C8AA6E',
+                fontSize: '24px',
+                transition: 'all 0.3s ease',
+                textDecoration: 'none',
+                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
+                e.currentTarget.style.borderColor = '#0AC8FF'
+                e.currentTarget.style.color = '#0AC8FF'
+                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
+                e.currentTarget.style.borderColor = '#C8AA6E'
+                e.currentTarget.style.color = '#C8AA6E'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+            >
+              <img src={Email} alt="Email" style={{ width: '24px', height: '24px' }} />
+            </a>
+            <a 
+              href="https://github.com/LongpanZhou" 
+              target="_blank" 
+              title="GitHub"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '50px',
+                height: '50px',
+                background: 'rgba(200, 170, 110, 0.1)',
+                border: '2px solid #C8AA6E',
+                color: '#C8AA6E',
+                fontSize: '24px',
+                transition: 'all 0.3s ease',
+                textDecoration: 'none',
+                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
+                e.currentTarget.style.borderColor = '#0AC8FF'
+                e.currentTarget.style.color = '#0AC8FF'
+                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
+                e.currentTarget.style.borderColor = '#C8AA6E'
+                e.currentTarget.style.color = '#C8AA6E'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+            >
+              <img src={Github} alt="GitHub" style={{ width: '24px', height: '24px' }} />
+            </a>
+            <a 
+              href="https://leetcode.com/u/longpanzhou/" 
+              target="_blank" 
+              title="LeetCode"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '50px',
+                height: '50px',
+                background: 'rgba(200, 170, 110, 0.1)',
+                border: '2px solid #C8AA6E',
+                color: '#C8AA6E',
+                fontSize: '24px',
+                transition: 'all 0.3s ease',
+                textDecoration: 'none',
+                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
+                e.currentTarget.style.borderColor = '#0AC8FF'
+                e.currentTarget.style.color = '#0AC8FF'
+                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
+                e.currentTarget.style.borderColor = '#C8AA6E'
+                e.currentTarget.style.color = '#C8AA6E'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+            >
+              <img src={Leetcode} alt="LeetCode" style={{ width: '24px', height: '24px' }} />
+            </a>
+            <a 
+              href="https://www.linkedin.com/in/longpan-zhou/" 
+              target="_blank" 
+              title="LinkedIn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '50px',
+                height: '50px',
+                background: 'rgba(200, 170, 110, 0.1)',
+                border: '2px solid #C8AA6E',
+                color: '#C8AA6E',
+                fontSize: '24px',
+                transition: 'all 0.3s ease',
+                textDecoration: 'none',
+                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
+                e.currentTarget.style.borderColor = '#0AC8FF'
+                e.currentTarget.style.color = '#0AC8FF'
+                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
+                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
+                e.currentTarget.style.borderColor = '#C8AA6E'
+                e.currentTarget.style.color = '#C8AA6E'
+                e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
+              }}
+            >
+              <img src={Linkedin} alt="LinkedIn" style={{ width: '24px', height: '24px' }} />
+            </a>
           </div>
 
           {/* Divider line */}
