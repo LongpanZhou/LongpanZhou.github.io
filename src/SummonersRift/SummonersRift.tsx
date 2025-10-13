@@ -43,7 +43,28 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
 
   const currentTrack = playlist[currentTrackIndex]
 
-  // Auto-start music - try immediately and on any user interaction
+  // STRATEGY 0: Force play immediately on mount
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    // Try to play ASAP
+    const forcePlay = () => {
+      audio.play().then(() => {
+        console.log('✓ Initial autoplay succeeded')
+      }).catch(() => {
+        console.log('⚠ Initial autoplay blocked, will retry on interaction')
+      })
+    }
+
+    // Try immediately and after a short delay
+    forcePlay()
+    const timer = setTimeout(forcePlay, 100)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  // AGGRESSIVE AUTO-START MUSIC - Multiple strategies to force autoplay
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -51,38 +72,59 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     // Set initial volume
     audio.volume = volume
 
+    let unmutedSuccessfully = false
+
     const tryUnmute = () => {
-      if (!initialMuted.current) return
+      if (unmutedSuccessfully) return
       
-      // Try to unmute - this works after autoplay starts muted
-      audio.muted = false
-      initialMuted.current = false
-      
-      // Ensure it's playing
+      // Force play
       if (audio.paused) {
         audio.play().then(() => {
+          unmutedSuccessfully = true
           setIsPlaying(true)
-          console.log('Audio playing and unmuted after user interaction')
+          console.log('✓ Audio playing and unmuted')
         }).catch(err => {
-          console.log('Play failed:', err)
+          console.log('✗ Play attempt failed:', err.message)
+          // Try again in a moment
+          setTimeout(tryUnmute, 500)
         })
       } else {
+        unmutedSuccessfully = true
         setIsPlaying(true)
-        console.log('Audio unmuted successfully')
+        console.log('✓ Audio unmuted successfully')
       }
     }
 
-    // Try to unmute immediately (will work if autoplay succeeded while muted)
-    const immediateTimer = setTimeout(tryUnmute, 300)
-
-    // Also try on any user interaction
-    const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'touchmove']
+    // Try on EVERY possible user interaction (not just once)
+    const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'touchmove', 'mousedown', 'touchend', 'wheel', 'pointerdown']
     const handler = () => {
       tryUnmute()
     }
     
-    // Add listeners that will fire once
-    events.forEach(event => document.addEventListener(event, handler, { once: true }))
+    // Add persistent listeners (not { once: true })
+    events.forEach(event => document.addEventListener(event, handler))
+
+    // Strategy 3: Try when window gains focus
+    const focusHandler = () => {
+      tryUnmute()
+    }
+    window.addEventListener('focus', focusHandler)
+
+    // Strategy 4: Try when visibility changes
+    const visibilityHandler = () => {
+      if (!document.hidden) {
+        tryUnmute()
+      }
+    }
+    document.addEventListener('visibilitychange', visibilityHandler)
+
+    // Strategy 5: Continuous monitoring - try every 2 seconds if still muted
+    const monitorInterval = setInterval(() => {
+      if (!unmutedSuccessfully && audio.muted) {
+        console.log('⟳ Retrying autoplay...')
+        tryUnmute()
+      }
+    }, 2000)
 
     // Mark that we've attempted autoplay
     if (!hasAttemptedAutoplay.current) {
@@ -90,8 +132,11 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     }
 
     return () => {
-      clearTimeout(immediateTimer)
+      timers.forEach(timer => clearTimeout(timer))
       events.forEach(event => document.removeEventListener(event, handler))
+      window.removeEventListener('focus', focusHandler)
+      document.removeEventListener('visibilitychange', visibilityHandler)
+      clearInterval(monitorInterval)
     }
   }, [volume])
 
@@ -239,9 +284,11 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
         ref={audioRef} 
         src={currentTrack.audioSrc}
         autoPlay
-        muted
+        muted={initialMuted.current}
         loop={false}
         preload="auto"
+        playsInline
+        crossOrigin="anonymous"
       />
 
       {/* Track Info */}
@@ -420,11 +467,10 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
 }
 
 // WASD Camera Controller Component with Auto-Movement
-function CameraController({ onPositionChange, onRotationChange, controlsRef, initialRotation, goingHome, startCinema }: { 
+function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, startCinema }: { 
   onPositionChange: (pos: { x: number, y: number, z: number }) => void,
   onRotationChange: (rot: { yaw: number, pitch: number }) => void,
   controlsRef: React.MutableRefObject<any>,
-  initialRotation: { yaw: number, pitch: number },
   goingHome: boolean,
   startCinema: boolean
 }) {
@@ -821,6 +867,23 @@ function SummonersRift() {
   const [showCenterPanel, setShowCenterPanel] = useState(false)
   const [userInteracted, setUserInteracted] = useState(false)
   const controlsRef = useRef<any>(null)
+  const autoClickRef = useRef<HTMLButtonElement>(null)
+  
+  // ULTRA-AGGRESSIVE: Auto-click invisible button to simulate user interaction
+  useEffect(() => {
+    const attemptAutoClick = () => {
+      if (autoClickRef.current) {
+        autoClickRef.current.click()
+        console.log('✓ Auto-clicked invisible button to trigger audio')
+      }
+    }
+
+    // Try multiple times with delays
+    const delays = [10, 50, 100, 200, 500, 1000]
+    const timers = delays.map(delay => setTimeout(attemptAutoClick, delay))
+
+    return () => timers.forEach(timer => clearTimeout(timer))
+  }, [])
   
   // Get secret parameter from URL
   const secret = useMemo(() => {
@@ -923,6 +986,26 @@ function SummonersRift() {
 
   return (
     <div className="summoners-rift-test" style={{ cursor: 'url(/src/cursor.png), auto' }}>
+      {/* ULTRA-AGGRESSIVE: Invisible auto-click button to force user interaction */}
+      <button
+        ref={autoClickRef}
+        onClick={() => {
+          setUserInteracted(true)
+          console.log('✓ User interaction triggered via auto-click')
+        }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '1px',
+          height: '1px',
+          opacity: 0,
+          pointerEvents: 'none',
+          zIndex: -1
+        }}
+        aria-hidden="true"
+      />
+
       {/* Inline CSS for League of Legends style animations */}
       <style>{`
         @keyframes fadeInCenter {
@@ -1097,7 +1180,6 @@ function SummonersRift() {
           onPositionChange={setCameraPos} 
           onRotationChange={setCameraRotation} 
           controlsRef={controlsRef}
-          initialRotation={cameraRotation}
           goingHome={goingHome}
           startCinema={startCinema}
         />
