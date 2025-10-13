@@ -23,5 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Summoners Rift assets
-src/SummonersRift
+# Summoners Rift assets - exclude all except tsx and css files
+src/SummonersRift/*
+!src/SummonersRift/*.tsx
+!src/SummonersRift/*.css

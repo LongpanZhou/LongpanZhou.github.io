@@ -9,7 +9,6 @@ import Email from './icons/gmail.svg'
 import Linkedin from './icons/linkedin.svg'
 import Github from './icons/github.svg'
 import Leetcode from './icons/leetcode.svg'
-import MetaballBackground from '../components/MetaballBackground'
 
 // @ts-ignore
 const animalClicksInstance = new AnimalClicks(
@@ -42,7 +41,6 @@ function profile() {
 
   return (
     <>
-      <MetaballBackground />
       <div className='lp-profile-container'>
         <div className='lp-card-container'>
             <div className='lp-small-card'>
