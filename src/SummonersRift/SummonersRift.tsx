@@ -406,6 +406,12 @@ function SummonersRift() {
   const [showCenterPanel, setShowCenterPanel] = useState(false)
   const controlsRef = useRef<any>(null)
   
+  // Get secret parameter from URL
+  const secret = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('secret') === 'true'
+  }, [])
+  
   // Home position for distance calculation
   const homePosition = { x: -61, y: 2.7, z: 49.0 }
   
@@ -719,8 +725,52 @@ function SummonersRift() {
         </div>
       )}
 
-      {/* Center Content - League of Legends Style - Only when close to home */}
-      {goingHome && showCenterPanel && (
+      {/* Center Content - Only show button when secret is false, show full panel when secret is true */}
+      {goingHome && showCenterPanel && !secret && (
+        <div style={{
+          position: 'fixed',
+          top: '90%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 999
+        }}>
+          {/* Start Exploring Button - Standalone */}
+          <button
+            onClick={handleStartExploring}
+            style={{
+              background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
+              border: '2px solid #F0E6D2',
+              color: '#0A1428',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              padding: '15px 40px',
+              borderRadius: '0',
+              clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 0 20px rgba(200, 170, 110, 0.5)',
+              fontFamily: '"Beaufort for LOL", "Times New Roman", serif'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)'
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(200, 170, 110, 0.8)'
+              e.currentTarget.style.background = 'linear-gradient(135deg, #F0E6D2 0%, #C8AA6E 100%)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(200, 170, 110, 0.5)'
+              e.currentTarget.style.background = 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)'
+            }}
+          >
+            ⬢ Start Exploring ⬢
+          </button>
+        </div>
+      )}
+
+      {/* Center Content - League of Legends Style Panel - Only when secret is true */}
+      {goingHome && showCenterPanel && secret && (
         <div style={{
           position: 'fixed',
           top: '50%',
@@ -906,7 +956,7 @@ function SummonersRift() {
       )}
 
       {/* Controls Info - Hidden when going home */}
-      {!goingHome && (
+      {(!goingHome || !secret) && (
       <div className="controls-info">
         <h3>Controls</h3>
         <ul>
