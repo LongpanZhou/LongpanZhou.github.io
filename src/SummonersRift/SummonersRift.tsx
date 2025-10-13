@@ -77,6 +77,10 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     const tryUnmute = () => {
       if (unmutedSuccessfully) return
       
+      // Try to unmute and play
+      audio.muted = false
+      initialMuted.current = false
+      
       // Force play
       if (audio.paused) {
         audio.play().then(() => {
@@ -95,7 +99,11 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
       }
     }
 
-    // Try on EVERY possible user interaction (not just once)
+    // Strategy 1: Try immediately multiple times
+    const immediateAttempts = [100, 300, 500, 1000, 2000]
+    const timers = immediateAttempts.map(delay => setTimeout(tryUnmute, delay))
+
+    // Strategy 2: Try on EVERY possible user interaction (not just once)
     const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'touchmove', 'mousedown', 'touchend', 'wheel', 'pointerdown']
     const handler = () => {
       tryUnmute()
