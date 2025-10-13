@@ -8,6 +8,417 @@ import Linkedin from '../profile/icons/linkedin.svg'
 import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
 
+// Music Player Component
+function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(0.6)
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const hasAttemptedAutoplay = useRef(false)
+  const initialMuted = useRef(true) // Start muted for better autoplay success
+
+  // Playlist with weights
+  const playlist = [
+    {
+      title: 'Fade Away',
+      artist: 'Jay Chou',
+      audioSrc: '/src/music/ Jay Chou Fade AwayOfficial MV.mp3',
+      weight: 0.6
+    },
+    {
+      title: 'Lucid Dreams',
+      artist: 'Juice WRLD',
+      audioSrc: '/src/music/Juice WRLD - Lucid Dreams Official Music Video.mp3',
+      weight: 0.2
+    },
+    {
+      title: 'SKAI ISYOURGOD',
+      artist: 'SKAI',
+      audioSrc: '/src/music/ SKAI ISYOURGODOfficial Music Video.mp3',
+      weight: 0.2
+    }
+  ]
+
+  const currentTrack = playlist[currentTrackIndex]
+
+  // Auto-start music - try immediately and on any user interaction
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    // Set initial volume
+    audio.volume = volume
+
+    const tryUnmute = () => {
+      if (!initialMuted.current) return
+      
+      // Try to unmute - this works after autoplay starts muted
+      audio.muted = false
+      initialMuted.current = false
+      
+      // Ensure it's playing
+      if (audio.paused) {
+        audio.play().then(() => {
+          setIsPlaying(true)
+          console.log('Audio playing and unmuted after user interaction')
+        }).catch(err => {
+          console.log('Play failed:', err)
+        })
+      } else {
+        setIsPlaying(true)
+        console.log('Audio unmuted successfully')
+      }
+    }
+
+    // Try to unmute immediately (will work if autoplay succeeded while muted)
+    const immediateTimer = setTimeout(tryUnmute, 300)
+
+    // Also try on any user interaction
+    const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'touchmove']
+    const handler = () => {
+      tryUnmute()
+    }
+    
+    // Add listeners that will fire once
+    events.forEach(event => document.addEventListener(event, handler, { once: true }))
+
+    // Mark that we've attempted autoplay
+    if (!hasAttemptedAutoplay.current) {
+      hasAttemptedAutoplay.current = true
+    }
+
+    return () => {
+      clearTimeout(immediateTimer)
+      events.forEach(event => document.removeEventListener(event, handler))
+    }
+  }, [volume])
+
+  // Also trigger on explicit user interaction prop
+  useEffect(() => {
+    if (onUserInteraction && audioRef.current) {
+      const audio = audioRef.current
+      audio.muted = false
+      initialMuted.current = false
+      
+      if (audio.paused) {
+        audio.volume = volume
+        audio.play().then(() => {
+          setIsPlaying(true)
+          console.log('Music started after user interaction')
+        }).catch(err => {
+          console.log('Play failed:', err)
+        })
+      } else {
+        setIsPlaying(true)
+      }
+    }
+  }, [onUserInteraction, volume])
+
+  // Monitor audio play state
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    const handlePlay = () => {
+      setIsPlaying(true)
+      console.log('Audio playing')
+    }
+
+    const handlePause = () => {
+      setIsPlaying(false)
+      console.log('Audio paused')
+    }
+
+    audio.addEventListener('play', handlePlay)
+    audio.addEventListener('pause', handlePause)
+
+    return () => {
+      audio.removeEventListener('play', handlePlay)
+      audio.removeEventListener('pause', handlePause)
+    }
+  }, [])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    const updateTime = () => setCurrentTime(audio.currentTime)
+    const updateDuration = () => setDuration(audio.duration)
+    const handleEnded = () => {
+      // Play next track when current ends
+      setCurrentTrackIndex((prev) => (prev + 1) % playlist.length)
+    }
+    
+    const handleCanPlay = () => {
+      // For track changes, play if was already playing
+      if (isPlaying && hasAttemptedAutoplay.current) {
+        audio.play().catch(err => {
+          console.log('Play failed on track change:', err)
+        })
+      }
+    }
+
+    audio.addEventListener('timeupdate', updateTime)
+    audio.addEventListener('loadedmetadata', updateDuration)
+    audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('canplay', handleCanPlay)
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime)
+      audio.removeEventListener('loadedmetadata', updateDuration)
+      audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('canplay', handleCanPlay)
+    }
+  }, [currentTrackIndex, isPlaying])
+  
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume
+    }
+  }, [volume])
+  
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    
+    // Only handle manual play/pause toggle, not track changes
+    if (isPlaying && audio.paused) {
+      audio.play().catch(err => {
+        console.log('Play failed:', err)
+        setIsPlaying(false)
+      })
+    } else if (!isPlaying && !audio.paused) {
+      audio.pause()
+    }
+  }, [isPlaying])
+
+  const togglePlay = () => setIsPlaying(!isPlaying)
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value)
+    setCurrentTime(time)
+    if (audioRef.current) {
+      audioRef.current.currentTime = time
+    }
+  }
+
+  const nextTrack = () => {
+    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length)
+  }
+
+  const prevTrack = () => {
+    setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length)
+  }
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px',
+      zIndex: 1000,
+      background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.9) 100%)',
+      border: '2px solid #C8AA6E',
+      borderRadius: '8px',
+      padding: '12px',
+      width: '240px',
+      backdropFilter: 'blur(10px)',
+      boxShadow: '0 0 20px rgba(200, 170, 110, 0.3)',
+      fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+      color: '#F0E6D2'
+    }}>
+      <audio 
+        ref={audioRef} 
+        src={currentTrack.audioSrc}
+        autoPlay
+        muted
+        loop={false}
+        preload="auto"
+      />
+
+      {/* Track Info */}
+      <div style={{ marginBottom: '8px', textAlign: 'center' }}>
+        <div style={{ 
+          fontSize: '13px', 
+          fontWeight: 'bold',
+          color: '#C8AA6E',
+          marginBottom: '2px',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          {currentTrack.title}
+        </div>
+        <div style={{ 
+          fontSize: '11px',
+          color: '#d4d4d4'
+        }}>
+          {currentTrack.artist}
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div style={{ marginBottom: '8px' }}>
+        <input
+          type="range"
+          min="0"
+          max={duration || 0}
+          value={currentTime}
+          onChange={handleSeek}
+          style={{
+            width: '100%',
+            height: '4px',
+            cursor: 'pointer',
+            accentColor: '#C8AA6E'
+          }}
+        />
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between',
+          fontSize: '9px',
+          color: '#d4d4d4',
+          marginTop: '2px'
+        }}>
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '10px',
+        marginBottom: '8px'
+      }}>
+        <button
+          onClick={prevTrack}
+          style={{
+            background: 'transparent',
+            border: '1px solid #C8AA6E',
+            color: '#C8AA6E',
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(200, 170, 110, 0.2)'
+            e.currentTarget.style.borderColor = '#0AC8FF'
+            e.currentTarget.style.color = '#0AC8FF'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.borderColor = '#C8AA6E'
+            e.currentTarget.style.color = '#C8AA6E'
+          }}
+        >
+          ⏮
+        </button>
+        
+        <button
+          onClick={togglePlay}
+          style={{
+            background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
+            border: '2px solid #F0E6D2',
+            color: '#0A1428',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.3s ease',
+            fontWeight: 'bold'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'scale(1.1)'
+            e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.6)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          {isPlaying ? '⏸' : '▶'}
+        </button>
+
+        <button
+          onClick={nextTrack}
+          style={{
+            background: 'transparent',
+            border: '1px solid #C8AA6E',
+            color: '#C8AA6E',
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(200, 170, 110, 0.2)'
+            e.currentTarget.style.borderColor = '#0AC8FF'
+            e.currentTarget.style.color = '#0AC8FF'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.borderColor = '#C8AA6E'
+            e.currentTarget.style.color = '#C8AA6E'
+          }}
+        >
+          ⏭
+        </button>
+      </div>
+
+      {/* Volume Control */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        gap: '6px'
+      }}>
+        <span style={{ fontSize: '10px' }}>🔊</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume}
+          onChange={(e) => setVolume(parseFloat(e.target.value))}
+          style={{
+            flex: 1,
+            height: '4px',
+            cursor: 'pointer',
+            accentColor: '#C8AA6E'
+          }}
+        />
+        <span style={{ fontSize: '9px', minWidth: '28px', textAlign: 'right' }}>
+          {Math.round(volume * 100)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // WASD Camera Controller Component with Auto-Movement
 function CameraController({ onPositionChange, onRotationChange, controlsRef, initialRotation, goingHome, startCinema }: { 
   onPositionChange: (pos: { x: number, y: number, z: number }) => void,
@@ -408,6 +819,7 @@ function SummonersRift() {
   const [goingHome, setGoingHome] = useState(true)
   const [startCinema, setStartCinema] = useState(false)
   const [showCenterPanel, setShowCenterPanel] = useState(false)
+  const [userInteracted, setUserInteracted] = useState(false)
   const controlsRef = useRef<any>(null)
   
   // Get secret parameter from URL
@@ -451,6 +863,7 @@ function SummonersRift() {
   const handleStartExploring = () => {
     setGoingHome(false)
     setStartCinema(true)
+    setUserInteracted(true) // Trigger music playback
   }
   
   // Custom cursor and cleanup
@@ -495,6 +908,7 @@ function SummonersRift() {
   // Check distance to home position and show panel when close
   useEffect(() => {
     if (goingHome) {
+      if (showCenterPanel) return;
       const distance = Math.sqrt(
         Math.pow(cameraPos.x - homePosition.x, 2) +
         Math.pow(cameraPos.y - homePosition.y, 2) +
@@ -1126,6 +1540,9 @@ function SummonersRift() {
         </ul>
       </div>
       )}
+
+      {/* Music Player */}
+      {secret && <MusicPlayer onUserInteraction={userInteracted} />}
     </div>
   )
 }
