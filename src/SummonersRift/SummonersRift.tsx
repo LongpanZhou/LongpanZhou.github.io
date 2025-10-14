@@ -1544,7 +1544,7 @@ function SummonersRift() {
       )}
 
   {/* Music Player - hidden on mobile */}
-  {secret && !mobile && <MusicPlayer onUserInteraction={userInteracted} />}
+  {!mobile && <MusicPlayer onUserInteraction={userInteracted} />}
     </div>
   )
 }
