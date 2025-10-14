@@ -1091,12 +1091,11 @@ function SummonersRift() {
         shadows
         gl={{ 
           powerPreference: mobile ? "default" : "high-performance",  // Mobile: Battery savings
-          antialias: mobile ? false : false,  // Mobile: No antialiasing
           stencil: false,
           depth: true,
           logarithmicDepthBuffer: mobile ? true : false  // Mobile: Better depth precision
         }}
-        dpr={mobile ? [0.75, 1] : [1, 1.5]}  // Mobile: Lower pixel ratio
+        dpr={ [1, 1.5]}
       >
         {/* Background */}
         <color attach="background" args={['#0a1428']} />
