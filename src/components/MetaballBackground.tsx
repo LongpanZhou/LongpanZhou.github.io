@@ -4,6 +4,7 @@ function MetaballBackground() {
   useEffect(() => {
     const initMetaball = async () => {
       // Import the metaball script
+      // @ts-ignore
       await import('../metaball.js')
       
       // Ensure canvas is properly positioned for mobile

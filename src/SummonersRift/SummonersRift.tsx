@@ -61,8 +61,8 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
           hasStartedRef.current = true
           setIsPlaying(true)
           console.log('✓ Audio started playing')
-        }).catch(err => {
-          console.log('⚠ Play blocked, waiting for user interaction')
+        }).catch((err) => {
+          console.log('⚠ Play blocked, waiting for user interaction', err)
         })
       }
     }
