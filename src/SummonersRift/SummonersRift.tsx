@@ -784,7 +784,7 @@ function SummonersRift() {
   // Get secret parameter from URL
   const secret = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
-    return params.get('secret') === 'true'
+    return params.get('secret') === 'false' ? false : true
   }, [])
   
   // Home position for distance calculation
@@ -891,7 +891,7 @@ function SummonersRift() {
   return (
     <div className="summoners-rift-test" style={{ cursor: 'url(/cursor.png), auto' }}>
       {/* Cinema Toggle Button for Mobile */}
-      {(!goingHome || mobile) && (
+      {!goingHome && mobile && (
         <div style={{
           position: 'fixed',
           bottom: '24px',
@@ -1159,17 +1159,18 @@ function SummonersRift() {
               background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
               border: '2px solid #F0E6D2',
               color: '#0A1428',
-              fontSize: '16px',
+              fontSize: mobile ? '14px' : '16px',
               fontWeight: 'bold',
               textTransform: 'uppercase',
-              letterSpacing: '2px',
-              padding: '15px 40px',
+              letterSpacing: mobile ? '1px' : '2px',
+              padding: mobile ? '12px 20px' : '15px 40px',
               borderRadius: '0',
               clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               boxShadow: '0 0 20px rgba(200, 170, 110, 0.5)',
-              fontFamily: '"Beaufort for LOL", "Times New Roman", serif'
+              fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+              whiteSpace: 'nowrap'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.05)'
@@ -1196,14 +1197,14 @@ function SummonersRift() {
           transform: 'translate(-50%, -50%)',
           zIndex: 999,
           background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.98) 0%, rgba(0, 20, 40, 0.98) 100%)',
-          padding: '60px 80px',
-          clipPath: 'polygon(0 0, calc(100% - 25px) 0, 100% 25px, 100% 100%, 25px 100%, 0 calc(100% - 25px))',
+          padding: mobile ? '30px 20px' : '60px 80px',
+          clipPath: mobile ? 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px))' : 'polygon(0 0, calc(100% - 25px) 0, 100% 25px, 100% 100%, 25px 100%, 0 calc(100% - 25px))',
           color: 'white',
           fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
           textAlign: 'center',
-          minWidth: '600px',
-          maxWidth: '700px',
-          border: '3px solid rgba(200, 170, 110, 0.8)',
+          minWidth: mobile ? '90vw' : '600px',
+          maxWidth: mobile ? '95vw' : '700px',
+          border: mobile ? '2px solid rgba(200, 170, 110, 0.8)' : '3px solid rgba(200, 170, 110, 0.8)',
           opacity: 0,
           animation: 'fadeInCenter 1.5s ease-in forwards, hexGlow 3s infinite, borderPulse 2s infinite',
           backdropFilter: 'blur(15px)',
@@ -1271,11 +1272,11 @@ function SummonersRift() {
             left: '50%',
             transform: 'translateX(-50%)',
             background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
-            padding: '8px 30px',
+            padding: mobile ? '6px 15px' : '8px 30px',
             clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
-            fontSize: '12px',
+            fontSize: mobile ? '9px' : '12px',
             fontWeight: 'bold',
-            letterSpacing: '2px',
+            letterSpacing: mobile ? '1px' : '2px',
             color: '#0A1428',
             textTransform: 'uppercase',
             boxShadow: '0 4px 15px rgba(200, 170, 110, 0.6)'
@@ -1285,12 +1286,12 @@ function SummonersRift() {
 
           {/* Title with LoL gold - Enhanced */}
           <h2 style={{ 
-            margin: '30px 0 15px 0', 
-            fontSize: '42px',
+            margin: mobile ? '20px 0 10px 0' : '30px 0 15px 0', 
+            fontSize: mobile ? '28px' : '42px',
             fontWeight: 'bold',
             color: '#C8AA6E',
             textTransform: 'uppercase',
-            letterSpacing: '4px',
+            letterSpacing: mobile ? '2px' : '4px',
             textShadow: '0 0 25px rgba(200, 170, 110, 0.6), 0 0 50px rgba(10, 200, 255, 0.4)',
             lineHeight: '1.2'
           }}>
@@ -1302,12 +1303,12 @@ function SummonersRift() {
             display: 'inline-block',
             background: 'rgba(10, 200, 255, 0.1)',
             border: '2px solid #0AC8FF',
-            padding: '8px 25px',
-            marginBottom: '30px',
+            padding: mobile ? '6px 15px' : '8px 25px',
+            marginBottom: mobile ? '20px' : '30px',
             clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
-            fontSize: '13px',
+            fontSize: mobile ? '11px' : '13px',
             color: '#0AC8FF',
-            letterSpacing: '3px',
+            letterSpacing: mobile ? '1.5px' : '3px',
             textTransform: 'uppercase',
             fontWeight: 'bold',
             boxShadow: '0 0 20px rgba(10, 200, 255, 0.3)'
@@ -1317,11 +1318,11 @@ function SummonersRift() {
 
           {/* Quote Section */}
           <div style={{ 
-            fontSize: '18px', 
+            fontSize: mobile ? '14px' : '18px', 
             lineHeight: '1.8',
             color: '#d4d4d4',
-            marginBottom: '35px',
-            padding: '20px 0',
+            marginBottom: mobile ? '20px' : '35px',
+            padding: mobile ? '15px 0' : '20px 0',
             borderTop: '1px solid rgba(200, 170, 110, 0.3)',
             borderBottom: '1px solid rgba(200, 170, 110, 0.3)'
           }}>
@@ -1334,8 +1335,8 @@ function SummonersRift() {
           <div style={{
             display: 'flex',
             justifyContent: 'center',
-            gap: '15px',
-            marginBottom: '35px'
+            gap: mobile ? '10px' : '15px',
+            marginBottom: mobile ? '20px' : '35px'
           }}>
             <a 
               href="mailto:patrickzhoul123@gmail.com" 
@@ -1344,12 +1345,12 @@ function SummonersRift() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '50px',
-                height: '50px',
+                width: mobile ? '40px' : '50px',
+                height: mobile ? '40px' : '50px',
                 background: 'rgba(200, 170, 110, 0.1)',
                 border: '2px solid #C8AA6E',
                 color: '#C8AA6E',
-                fontSize: '24px',
+                fontSize: mobile ? '18px' : '24px',
                 transition: 'all 0.3s ease',
                 textDecoration: 'none',
                 clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
@@ -1370,7 +1371,7 @@ function SummonersRift() {
                 e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
               }}
             >
-              <img src={Email} alt="Email" style={{ width: '24px', height: '24px' }} />
+              <img src={Email} alt="Email" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
             </a>
             <a 
               href="https://github.com/LongpanZhou" 
@@ -1380,12 +1381,12 @@ function SummonersRift() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '50px',
-                height: '50px',
+                width: mobile ? '40px' : '50px',
+                height: mobile ? '40px' : '50px',
                 background: 'rgba(200, 170, 110, 0.1)',
                 border: '2px solid #C8AA6E',
                 color: '#C8AA6E',
-                fontSize: '24px',
+                fontSize: mobile ? '18px' : '24px',
                 transition: 'all 0.3s ease',
                 textDecoration: 'none',
                 clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
@@ -1406,7 +1407,7 @@ function SummonersRift() {
                 e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
               }}
             >
-              <img src={Github} alt="GitHub" style={{ width: '24px', height: '24px' }} />
+              <img src={Github} alt="GitHub" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
             </a>
             <a 
               href="https://leetcode.com/u/longpanzhou/" 
@@ -1416,12 +1417,12 @@ function SummonersRift() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '50px',
-                height: '50px',
+                width: mobile ? '40px' : '50px',
+                height: mobile ? '40px' : '50px',
                 background: 'rgba(200, 170, 110, 0.1)',
                 border: '2px solid #C8AA6E',
                 color: '#C8AA6E',
-                fontSize: '24px',
+                fontSize: mobile ? '18px' : '24px',
                 transition: 'all 0.3s ease',
                 textDecoration: 'none',
                 clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
@@ -1442,7 +1443,7 @@ function SummonersRift() {
                 e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
               }}
             >
-              <img src={Leetcode} alt="LeetCode" style={{ width: '24px', height: '24px' }} />
+              <img src={Leetcode} alt="LeetCode" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
             </a>
             <a 
               href="https://www.linkedin.com/in/longpan-zhou/" 
@@ -1452,12 +1453,12 @@ function SummonersRift() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '50px',
-                height: '50px',
+                width: mobile ? '40px' : '50px',
+                height: mobile ? '40px' : '50px',
                 background: 'rgba(200, 170, 110, 0.1)',
                 border: '2px solid #C8AA6E',
                 color: '#C8AA6E',
-                fontSize: '24px',
+                fontSize: mobile ? '18px' : '24px',
                 transition: 'all 0.3s ease',
                 textDecoration: 'none',
                 clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
@@ -1478,7 +1479,7 @@ function SummonersRift() {
                 e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
               }}
             >
-              <img src={Linkedin} alt="LinkedIn" style={{ width: '24px', height: '24px' }} />
+              <img src={Linkedin} alt="LinkedIn" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
             </a>
           </div>
 
@@ -1486,7 +1487,7 @@ function SummonersRift() {
           <div style={{
             height: '2px',
             background: 'linear-gradient(90deg, transparent, #C8AA6E, transparent)',
-            margin: '25px 0',
+            margin: mobile ? '15px 0' : '25px 0',
             boxShadow: '0 0 10px rgba(200, 170, 110, 0.5)'
           }} />
 
@@ -1497,18 +1498,19 @@ function SummonersRift() {
               background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
               border: '2px solid #F0E6D2',
               color: '#0A1428',
-              fontSize: '16px',
+              fontSize: mobile ? '14px' : '16px',
               fontWeight: 'bold',
               textTransform: 'uppercase',
-              letterSpacing: '2px',
-              padding: '15px 40px',
+              letterSpacing: mobile ? '1px' : '2px',
+              padding: mobile ? '12px 20px' : '15px 40px',
               borderRadius: '0',
               clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               boxShadow: '0 0 20px rgba(200, 170, 110, 0.5)',
               fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
-              marginTop: '10px'
+              marginTop: mobile ? '5px' : '10px',
+              whiteSpace: 'nowrap'
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.05)'
@@ -1527,7 +1529,7 @@ function SummonersRift() {
       )}
 
       {/* Controls Info - Hidden when going home or on mobile */}
-      {(!mobile && (!goingHome || !secret)) && (
+      {!mobile && (
       <div className="controls-info">
         <h3>Controls</h3>
         <ul>
