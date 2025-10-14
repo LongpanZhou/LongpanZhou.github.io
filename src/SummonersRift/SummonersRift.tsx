@@ -1101,7 +1101,7 @@ function SummonersRift() {
         {/* Background */}
         <color attach="background" args={['#0a1428']} />
         {/* Fog - Mobile: Closer fog to cull distant objects earlier */}
-        <fog attach="fog" args={mobile ? ['#0a1428', 50, 150] : ['#0a1428', 75, 200]} />
+        <fog attach="fog" args={['#0a1428', 100, 250]} />
         
         {/* Lighting - Mobile vs Desktop */}
         {mobile ? (
