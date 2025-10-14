@@ -24,19 +24,19 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     {
       title: 'Fade Away',
       artist: 'Jay Chou',
-      audioSrc: '/src/music/ Jay Chou Fade AwayOfficial MV.mp3',
+      audioSrc: '/music/ Jay Chou Fade AwayOfficial MV.mp3',
       weight: 0.6
     },
     {
       title: 'Lucid Dreams',
       artist: 'Juice WRLD',
-      audioSrc: '/src/music/Juice WRLD - Lucid Dreams Official Music Video.mp3',
+      audioSrc: '/music/Juice WRLD - Lucid Dreams Official Music Video.mp3',
       weight: 0.2
     },
     {
       title: 'SKAI ISYOURGOD',
       artist: 'SKAI',
-      audioSrc: '/src/music/ SKAI ISYOURGODOfficial Music Video.mp3',
+      audioSrc: '/music/ SKAI ISYOURGODOfficial Music Video.mp3',
       weight: 0.2
     }
   ]
@@ -646,7 +646,7 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
   const modelRef = useRef<THREE.Group>(null)
   
   // Load optimized Summoner's Rift with full textures
-  const { scene } = useGLTF('/src/rift-opt.glb', true, true)
+  const { scene } = useGLTF('/rift-opt.glb', true, true)
 
   // Notify when model is ready
   useEffect(() => {
@@ -766,7 +766,7 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
 }
 
 // Preload the model
-useGLTF.preload('/src/rift-opt.glb')
+useGLTF.preload('/rift-opt.glb')
 
 function SummonersRift() {
   const [isReady, setIsReady] = useState(false)
@@ -840,10 +840,10 @@ function SummonersRift() {
     style.id = 'summoners-rift-cursor-override'
     style.innerHTML = `
       body, body *, .summoners-rift-test, .summoners-rift-test * {
-        cursor: url(/src/cursor.png), auto !important;
+        cursor: url(/cursor.png), auto !important;
       }
       .hide-cursor, .hide-cursor * {
-        cursor: url(/src/cursor.png), auto !important;
+        cursor: url(/cursor.png), auto !important;
       }
       .dropping-text {
         display: none !important;
@@ -889,9 +889,9 @@ function SummonersRift() {
   }, [cameraPos, goingHome])
 
   return (
-    <div className="summoners-rift-test" style={{ cursor: 'url(/src/cursor.png), auto' }}>
+    <div className="summoners-rift-test" style={{ cursor: 'url(/cursor.png), auto' }}>
       {/* Cinema Toggle Button for Mobile */}
-      {!goingHome && mobile && (
+      {(!goingHome || mobile) && (
         <div style={{
           position: 'fixed',
           bottom: '24px',
@@ -937,7 +937,7 @@ function SummonersRift() {
           50% { border-color: rgba(200, 170, 110, 1); }
         }
         .summoners-rift-test * {
-          cursor: url(/src/cursor.png), auto !important;
+          cursor: url(/cursor.png), auto !important;
         }
       `}</style>
       
