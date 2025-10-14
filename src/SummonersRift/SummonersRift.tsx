@@ -7,192 +7,7 @@ import Email from '../profile/icons/gmail.svg'
 import Linkedin from '../profile/icons/linkedin.svg'
 import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
-import { getLatestGame } from './riotApi'
-
-// GameCard Component - Displays latest League of Legends match
-function GameCard() {
-  const [gameData, setGameData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchLatestGame = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        // TODO: Replace with your Riot ID
-        // Example: getLatestGame('HideonBush', 'NA1') for Faker's account
-        // Find your Riot ID in-game or at: https://account.riotgames.com/
-        const data = await getLatestGame('GBU57BunkrBlastr', 'ZZZZ')
-        
-        setGameData(data)
-      } catch (err) {
-        console.error('Failed to fetch game data:', err)
-        setError('Failed to load match data.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchLatestGame()
-  }, [])
-
-  if (loading) {
-    return (
-      <div style={{
-        padding: '20px',
-        margin: '20px 0',
-        background: 'rgba(10, 200, 255, 0.05)',
-        border: '2px solid rgba(10, 200, 255, 0.3)',
-        clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-        textAlign: 'center'
-      }}>
-        <div style={{ color: '#0AC8FF', fontSize: '14px' }}>
-          Loading latest match...
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !gameData) {
-    return (
-      <div style={{
-        padding: '20px',
-        margin: '20px 0',
-        background: 'rgba(200, 170, 110, 0.05)',
-        border: '2px solid rgba(200, 170, 110, 0.3)',
-        clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-        textAlign: 'center'
-      }}>
-        <div style={{ color: '#C8AA6E', fontSize: '14px' }}>
-          {error || 'No match data available'}
-        </div>
-      </div>
-    )
-  }
-
-  const isVictory = gameData.gameResult === 'Victory'
-  const kda = gameData.deaths === 0 
-    ? 'Perfect' 
-    : ((gameData.kills + gameData.assists) / gameData.deaths).toFixed(2)
-
-  return (
-    <div style={{
-      padding: '20px',
-      margin: '20px 0',
-      background: isVictory 
-        ? 'linear-gradient(135deg, rgba(10, 200, 255, 0.1) 0%, rgba(0, 100, 150, 0.05) 100%)'
-        : 'linear-gradient(135deg, rgba(220, 50, 50, 0.1) 0%, rgba(150, 30, 30, 0.05) 100%)',
-      border: `2px solid ${isVictory ? '#0AC8FF' : '#DC3232'}`,
-      clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-      boxShadow: `0 0 20px ${isVictory ? 'rgba(10, 200, 255, 0.3)' : 'rgba(220, 50, 50, 0.3)'}`,
-      position: 'relative'
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '15px'
-      }}>
-        <div style={{
-          fontSize: '12px',
-          color: '#d4d4d4',
-          textTransform: 'uppercase',
-          letterSpacing: '1px'
-        }}>
-          Latest Match
-        </div>
-        <div style={{
-          fontSize: '16px',
-          fontWeight: 'bold',
-          color: isVictory ? '#0AC8FF' : '#DC3232',
-          textShadow: `0 0 10px ${isVictory ? 'rgba(10, 200, 255, 0.5)' : 'rgba(220, 50, 50, 0.5)'}`
-        }}>
-          {gameData.gameResult}
-        </div>
-      </div>
-
-      {/* Champion and Stats */}
-      <div style={{
-        display: 'flex',
-        gap: '15px',
-        alignItems: 'center'
-      }}>
-        {/* Champion Icon */}
-        <div style={{
-          width: '64px',
-          height: '64px',
-          border: '2px solid #C8AA6E',
-          clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-          overflow: 'hidden',
-          flexShrink: 0
-        }}>
-          <img 
-            src={gameData.championIcon} 
-            alt={gameData.championName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={(e) => {
-              // Fallback if image fails to load
-              e.currentTarget.style.display = 'none'
-            }}
-          />
-        </div>
-
-        {/* Stats */}
-        <div style={{ flex: 1 }}>
-          <div style={{
-            fontSize: '18px',
-            fontWeight: 'bold',
-            color: '#F0E6D2',
-            marginBottom: '5px'
-          }}>
-            {gameData.championName}
-          </div>
-          <div style={{
-            fontSize: '20px',
-            fontWeight: 'bold',
-            color: '#C8AA6E',
-            marginBottom: '5px'
-          }}>
-            {gameData.kills} / {gameData.deaths} / {gameData.assists}
-          </div>
-          <div style={{
-            fontSize: '12px',
-            color: '#d4d4d4'
-          }}>
-            KDA: <span style={{ color: '#0AC8FF', fontWeight: 'bold' }}>{kda}</span>
-          </div>
-        </div>
-
-        {/* Duration */}
-        <div style={{
-          textAlign: 'right',
-          fontSize: '12px',
-          color: '#d4d4d4'
-        }}>
-          <div>{gameData.gameMode}</div>
-          <div style={{ marginTop: '5px', color: '#C8AA6E' }}>
-            {gameData.gameDuration}
-          </div>
-        </div>
-      </div>
-
-      {/* Decorative corner accent */}
-      <div style={{
-        position: 'absolute',
-        bottom: '8px',
-        left: '8px',
-        width: '20px',
-        height: '20px',
-        borderBottom: `2px solid ${isVictory ? '#0AC8FF' : '#DC3232'}`,
-        borderLeft: `2px solid ${isVictory ? '#0AC8FF' : '#DC3232'}`,
-        opacity: 0.5
-      }} />
-    </div>
-  )
-}
+import { isMobile } from '../utils/isMobile'
 
 // Music Player Component
 function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
@@ -962,6 +777,9 @@ function SummonersRift() {
   const [showCenterPanel, setShowCenterPanel] = useState(false)
   const [userInteracted, setUserInteracted] = useState(false)
   const controlsRef = useRef<any>(null)
+
+  // Mobile detection
+  const mobile = isMobile()
   
   // Get secret parameter from URL
   const secret = useMemo(() => {
@@ -1005,6 +823,14 @@ function SummonersRift() {
     setGoingHome(false)
     setStartCinema(true)
     setUserInteracted(true) // Trigger music playback
+  }
+  
+  // Toggle cinema mode handler (mobile)
+  // Dispatch a synthetic 'keydown' event for 'c' so it behaves exactly like pressing the C key
+  const handleToggleCinema = () => {
+      const evt = new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', keyCode: 67, bubbles: true, cancelable: true })
+      window.dispatchEvent(evt)
+      setStartCinema(prev => !prev)
   }
   
   // Custom cursor and cleanup
@@ -1064,6 +890,38 @@ function SummonersRift() {
 
   return (
     <div className="summoners-rift-test" style={{ cursor: 'url(/src/cursor.png), auto' }}>
+      {/* Cinema Toggle Button for Mobile */}
+      {!goingHome && mobile && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 2001
+        }}>
+          <button
+            onClick={handleToggleCinema}
+            style={{
+              background: startCinema ? 'linear-gradient(135deg, #0AC8FF 0%, #C8AA6E 100%)' : 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
+              border: '2px solid #F0E6D2',
+              color: '#0A1428',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '2px',
+              padding: '14px 32px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 0 15px rgba(10, 200, 255, 0.3)',
+              fontFamily: 'Beaufort for LOL, Times New Roman, serif',
+              transition: 'all 0.3s',
+            }}
+            aria-label={startCinema ? 'Exit Cinema Mode' : 'Enter Cinema Mode'}
+          >
+            {startCinema ? '🎬' : '🎬'}
+          </button>
+        </div>
+      )}
+
       {/* Inline CSS for League of Legends style animations */}
       <style>{`
         @keyframes fadeInCenter {
@@ -1102,12 +960,14 @@ function SummonersRift() {
         <div>Yaw: {cameraRotation.yaw.toFixed(1)}° | Pitch: {cameraRotation.pitch.toFixed(1)}°</div>
       </div>
 
-      {/* Back to Home Button - Top Right - LoL Style */}
+      {/* Back to Home Button - Top Right on desktop, Bottom Left on mobile */}
       {!goingHome && (
         <div style={{
           position: 'fixed',
-          top: '20px',
-          right: '20px',
+          top: mobile ? 'auto' : '20px',
+          right: mobile ? 'auto' : '20px',
+          bottom: mobile ? '20px' : 'auto',
+          left: mobile ? '20px' : 'auto',
           zIndex: 1000
         }}>
           <button
@@ -1161,7 +1021,7 @@ function SummonersRift() {
               borderBottom: '1px solid #C8AA6E',
               borderLeft: '1px solid #C8AA6E'
             }} />
-            ← Back to Home
+            {mobile ? 'Home' : '← Back to Home'}
           </button>
         </div>
       )}
@@ -1455,9 +1315,6 @@ function SummonersRift() {
             ⬡ Software Developer ⬡
           </div>
 
-          {/* Latest Game*/}
-          {/* <GameCard /> */}
-
           {/* Quote Section */}
           <div style={{ 
             fontSize: '18px', 
@@ -1669,8 +1526,8 @@ function SummonersRift() {
         </div>
       )}
 
-      {/* Controls Info - Hidden when going home */}
-      {(!goingHome || !secret) && (
+      {/* Controls Info - Hidden when going home or on mobile */}
+      {(!mobile && (!goingHome || !secret)) && (
       <div className="controls-info">
         <h3>Controls</h3>
         <ul>
@@ -1684,8 +1541,8 @@ function SummonersRift() {
       </div>
       )}
 
-      {/* Music Player */}
-      {secret && <MusicPlayer onUserInteraction={userInteracted} />}
+  {/* Music Player - hidden on mobile */}
+  {secret && !mobile && <MusicPlayer onUserInteraction={userInteracted} />}
     </div>
   )
 }

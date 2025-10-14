@@ -1,3 +1,37 @@
+/* Cinema Toggle Button for Mobile */
+.cinema-toggle-mobile {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2001;
+}
+
+.cinema-toggle-mobile button {
+  background: linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%);
+  border: 2px solid #F0E6D2;
+  color: #0A1428;
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 12px 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(10, 200, 255, 0.3);
+  font-family: 'Beaufort for LOL', Times New Roman, serif;
+  transition: all 0.3s;
+}
+
+.cinema-toggle-mobile button.active {
+  background: linear-gradient(135deg, #0AC8FF 0%, #C8AA6E 100%);
+  color: #0A1428;
+}
+
+/* Cinema mode effect for mobile */
+.cinema-mode-mobile {
+  filter: brightness(0.8) blur(2px);
+  transition: filter 0.3s;
+}
 /* Summoner's Rift Test Container */
 .summoners-rift-test {
   width: 100vw;
