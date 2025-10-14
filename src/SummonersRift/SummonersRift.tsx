@@ -697,7 +697,7 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
               }
             }
             
-            // VRAM Optimization 3: Fix material rendering and optimize
+            // VRAM Optimization 3: Material simplification - Mobile vs Desktop
             const standardMat = material as THREE.MeshStandardMaterial
             
             // Ensure proper rendering
@@ -707,33 +707,66 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
             standardMat.depthWrite = true
             standardMat.depthTest = true
             
-            // Optimize texture maps while keeping them
-            if (standardMat.normalMap) {
-              standardMat.normalScale?.set(0.5, 0.5)
-            }
-            
-            // Only set constant values if maps don't exist
-            if (!standardMat.roughnessMap) {
+            if (mobile) {
+              // Mobile: Remove expensive texture maps entirely
+              if (standardMat.normalMap) {
+                standardMat.normalMap = null
+                console.log('Removed normal map (mobile)')
+              }
+              if (standardMat.roughnessMap) {
+                standardMat.roughnessMap = null
+                console.log('Removed roughness map (mobile)')
+              }
+              if (standardMat.metalnessMap) {
+                standardMat.metalnessMap = null
+                console.log('Removed metalness map (mobile)')
+              }
+              if (standardMat.aoMap) {
+                standardMat.aoMap = null
+                console.log('Removed AO map (mobile)')
+              }
+              
+              // Set simple constant values for mobile
               standardMat.roughness = 0.8
-            }
-            if (!standardMat.metalnessMap) {
               standardMat.metalness = 0.0
+              standardMat.aoMapIntensity = 0
+            } else {
+              // Desktop: Keep texture maps but optimize
+              if (standardMat.normalMap) {
+                standardMat.normalScale?.set(0.5, 0.5)
+              }
+              
+              // Only set constant values if maps don't exist
+              if (!standardMat.roughnessMap) {
+                standardMat.roughness = 0.8
+              }
+              if (!standardMat.metalnessMap) {
+                standardMat.metalness = 0.0
+              }
             }
           }
         }
         
-        // VRAM Optimization 4: Selectively enable shadows
+        // VRAM Optimization 4: Shadow settings - Mobile vs Desktop
         const meshName = mesh.name.toLowerCase()
-        if (meshName.includes('ground') || meshName.includes('terrain') || meshName.includes('base')) {
-          mesh.receiveShadow = true
-          mesh.castShadow = false
-        } else if (meshName.includes('tower') || meshName.includes('structure')) {
-          mesh.castShadow = true
-          mesh.receiveShadow = true
-        } else {
-          // Disable shadows for small/decorative objects
+        
+        if (mobile) {
+          // Mobile: Disable all shadows for performance
           mesh.castShadow = false
           mesh.receiveShadow = false
+        } else {
+          // Desktop: Selectively enable shadows
+          if (meshName.includes('ground') || meshName.includes('terrain') || meshName.includes('base')) {
+            mesh.receiveShadow = true
+            mesh.castShadow = false
+          } else if (meshName.includes('tower') || meshName.includes('structure')) {
+            mesh.castShadow = true
+            mesh.receiveShadow = true
+          } else {
+            // Disable shadows for small/decorative objects
+            mesh.castShadow = false
+            mesh.receiveShadow = false
+          }
         }
         
         // VRAM Optimization 5: Frustum culling
@@ -1053,30 +1086,47 @@ function SummonersRift() {
           position: [randomCamera.x, randomCamera.y, randomCamera.z],
           fov: 60,
           near: 0.1,
-          far: 1000
+          far: mobile ? 500 : 1000  // Mobile: Reduced render distance
         }}
         shadows
         gl={{ 
-          powerPreference: "high-performance",
-          antialias: false,
+          powerPreference: mobile ? "default" : "high-performance",  // Mobile: Battery savings
+          antialias: mobile ? false : false,  // Mobile: No antialiasing
           stencil: false,
-          depth: true
+          depth: true,
+          logarithmicDepthBuffer: mobile ? true : false  // Mobile: Better depth precision
         }}
-        dpr={[1, 1.5]}
+        dpr={mobile ? [0.75, 1] : [1, 1.5]}  // Mobile: Lower pixel ratio
       >
         {/* Background */}
         <color attach="background" args={['#0a1428']} />
-        <fog attach="fog" args={['#0a1428', 75, 200]} />
+        {/* Fog - Mobile: Closer fog to cull distant objects earlier */}
+        <fog attach="fog" args={mobile ? ['#0a1428', 50, 150] : ['#0a1428', 75, 200]} />
         
-        {/* Lighting */}
-        <ambientLight intensity={6} />
-        <directionalLight
-          position={[-75, 250, 75]}
-          intensity={6}
-          castShadow={false}
-        />
-        <pointLight position={[-75, 200, 75]} intensity={300} distance={300} decay={2} />
-        <hemisphereLight args={['#ffffff', '#ffffff', 4]} />
+        {/* Lighting - Mobile vs Desktop */}
+        {mobile ? (
+          /* Mobile: Only ambient + 1 directional light (2 lights total) */
+          <>
+            <ambientLight intensity={6} />
+            <directionalLight
+              position={[-75, 250, 75]}
+              intensity={6}
+              castShadow={false}
+            />
+          </>
+        ) : (
+          /* Desktop: Ambient + directional + point + hemisphere lights (4 lights total) */
+          <>
+            <ambientLight intensity={6} />
+            <directionalLight
+              position={[-75, 250, 75]}
+              intensity={6}
+              castShadow={false}
+            />
+            <pointLight position={[-75, 200, 75]} intensity={300} distance={300} decay={2} />
+            <hemisphereLight args={['#ffffff', '#ffffff', 4]} />
+          </>
+        )}
 
         {/* Sky */}
         <Sky
@@ -1087,7 +1137,8 @@ function SummonersRift() {
         />
 
         {/* Grid for reference */}
-        <Grid
+        {!mobile && (
+                  <Grid
           args={[200, 200]}
           cellSize={2}
           cellThickness={0.5}
@@ -1100,6 +1151,7 @@ function SummonersRift() {
           followCamera={false}
           position={[0, -5, 0]}
         />
+        )}
 
         {/* Load the Summoner's Rift Model */}
         <Suspense fallback={<LoadingIndicator />}>
