@@ -659,6 +659,7 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
   useMemo(() => {
     console.log('=== Loaded Scene Info ===')
     const materialsCache = new Map<string, THREE.Material>()
+    const mobile = isMobile()
     
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
@@ -675,13 +676,25 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
           } else {
             materialsCache.set(materialKey, material)
             
-            // VRAM Optimization 2: Reduce texture resolution and enable compression
+            // VRAM Optimization 2: Texture optimizations - Mobile vs Desktop
             if ((material as any).map) {
               const texture = (material as any).map as THREE.Texture
-              texture.minFilter = THREE.LinearMipmapLinearFilter
-              texture.magFilter = THREE.LinearFilter
-              texture.generateMipmaps = true
-              texture.anisotropy = 2
+              
+              if (mobile) {
+                // Mobile: Simplified texture settings for performance
+                texture.minFilter = THREE.LinearFilter
+                texture.magFilter = THREE.LinearFilter
+                texture.generateMipmaps = false
+                texture.anisotropy = 0
+                console.log('Mobile texture settings applied')
+              } else {
+                // Desktop: Better quality with mipmaps and filtering
+                texture.minFilter = THREE.LinearMipmapLinearFilter
+                texture.magFilter = THREE.LinearFilter
+                texture.generateMipmaps = true
+                texture.anisotropy = 2
+                console.log('Desktop texture settings applied')
+              }
             }
             
             // VRAM Optimization 3: Fix material rendering and optimize
