@@ -20,26 +20,26 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
   const hasStartedRef = useRef(false)
 
   // Playlist with weights
-  const playlist = [
-    {
-      title: 'Fade Away',
-      artist: 'Jay Chou',
-      audioSrc: '/music/ Jay Chou Fade AwayOfficial MV.mp3',
-      weight: 0.6
-    },
-    {
-      title: 'Lucid Dreams',
-      artist: 'Juice WRLD',
-      audioSrc: '/music/Juice WRLD - Lucid Dreams Official Music Video.mp3',
-      weight: 0.2
-    },
-    {
-      title: 'SKAI ISYOURGOD',
-      artist: 'SKAI',
-      audioSrc: '/music/ SKAI ISYOURGODOfficial Music Video.mp3',
-      weight: 0.2
-    }
-  ]
+const playlist = [
+  {
+    title: 'Fade Away',
+    artist: 'Jay Chou',
+    audioSrc: './music/Jay Chou Fade AwayOfficial MV.mp3',
+    weight: 0.6
+  },
+  {
+    title: 'Lucid Dreams',
+    artist: 'Juice WRLD',
+    audioSrc: './music/Juice WRLD - Lucid Dreams Official Music Video.mp3',
+    weight: 0.2
+  },
+  {
+    title: 'SKAI ISYOURGOD',
+    artist: 'SKAI',
+    audioSrc: './music/SKAI ISYOURGODOfficial Music Video.mp3',
+    weight: 0.2
+  }
+]
 
   const currentTrack = playlist[currentTrackIndex]
 
@@ -1544,7 +1544,7 @@ function SummonersRift() {
       )}
 
   {/* Music Player - hidden on mobile */}
-  {!mobile && <MusicPlayer onUserInteraction={userInteracted} />}
+  {!mobile && secret && <MusicPlayer onUserInteraction={userInteracted} />}
     </div>
   )
 }
