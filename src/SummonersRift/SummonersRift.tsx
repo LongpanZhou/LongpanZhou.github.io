@@ -7,6 +7,192 @@ import Email from '../profile/icons/gmail.svg'
 import Linkedin from '../profile/icons/linkedin.svg'
 import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
+import { getLatestGame } from './riotApi'
+
+// GameCard Component - Displays latest League of Legends match
+function GameCard() {
+  const [gameData, setGameData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchLatestGame = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // TODO: Replace with your Riot ID
+        // Example: getLatestGame('HideonBush', 'NA1') for Faker's account
+        // Find your Riot ID in-game or at: https://account.riotgames.com/
+        const data = await getLatestGame('GBU57BunkrBlastr', 'ZZZZ')
+        
+        setGameData(data)
+      } catch (err) {
+        console.error('Failed to fetch game data:', err)
+        setError('Failed to load match data.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLatestGame()
+  }, [])
+
+  if (loading) {
+    return (
+      <div style={{
+        padding: '20px',
+        margin: '20px 0',
+        background: 'rgba(10, 200, 255, 0.05)',
+        border: '2px solid rgba(10, 200, 255, 0.3)',
+        clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+        textAlign: 'center'
+      }}>
+        <div style={{ color: '#0AC8FF', fontSize: '14px' }}>
+          Loading latest match...
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !gameData) {
+    return (
+      <div style={{
+        padding: '20px',
+        margin: '20px 0',
+        background: 'rgba(200, 170, 110, 0.05)',
+        border: '2px solid rgba(200, 170, 110, 0.3)',
+        clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+        textAlign: 'center'
+      }}>
+        <div style={{ color: '#C8AA6E', fontSize: '14px' }}>
+          {error || 'No match data available'}
+        </div>
+      </div>
+    )
+  }
+
+  const isVictory = gameData.gameResult === 'Victory'
+  const kda = gameData.deaths === 0 
+    ? 'Perfect' 
+    : ((gameData.kills + gameData.assists) / gameData.deaths).toFixed(2)
+
+  return (
+    <div style={{
+      padding: '20px',
+      margin: '20px 0',
+      background: isVictory 
+        ? 'linear-gradient(135deg, rgba(10, 200, 255, 0.1) 0%, rgba(0, 100, 150, 0.05) 100%)'
+        : 'linear-gradient(135deg, rgba(220, 50, 50, 0.1) 0%, rgba(150, 30, 30, 0.05) 100%)',
+      border: `2px solid ${isVictory ? '#0AC8FF' : '#DC3232'}`,
+      clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+      boxShadow: `0 0 20px ${isVictory ? 'rgba(10, 200, 255, 0.3)' : 'rgba(220, 50, 50, 0.3)'}`,
+      position: 'relative'
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '15px'
+      }}>
+        <div style={{
+          fontSize: '12px',
+          color: '#d4d4d4',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}>
+          Latest Match
+        </div>
+        <div style={{
+          fontSize: '16px',
+          fontWeight: 'bold',
+          color: isVictory ? '#0AC8FF' : '#DC3232',
+          textShadow: `0 0 10px ${isVictory ? 'rgba(10, 200, 255, 0.5)' : 'rgba(220, 50, 50, 0.5)'}`
+        }}>
+          {gameData.gameResult}
+        </div>
+      </div>
+
+      {/* Champion and Stats */}
+      <div style={{
+        display: 'flex',
+        gap: '15px',
+        alignItems: 'center'
+      }}>
+        {/* Champion Icon */}
+        <div style={{
+          width: '64px',
+          height: '64px',
+          border: '2px solid #C8AA6E',
+          clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+          overflow: 'hidden',
+          flexShrink: 0
+        }}>
+          <img 
+            src={gameData.championIcon} 
+            alt={gameData.championName}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={(e) => {
+              // Fallback if image fails to load
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        </div>
+
+        {/* Stats */}
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: '#F0E6D2',
+            marginBottom: '5px'
+          }}>
+            {gameData.championName}
+          </div>
+          <div style={{
+            fontSize: '20px',
+            fontWeight: 'bold',
+            color: '#C8AA6E',
+            marginBottom: '5px'
+          }}>
+            {gameData.kills} / {gameData.deaths} / {gameData.assists}
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#d4d4d4'
+          }}>
+            KDA: <span style={{ color: '#0AC8FF', fontWeight: 'bold' }}>{kda}</span>
+          </div>
+        </div>
+
+        {/* Duration */}
+        <div style={{
+          textAlign: 'right',
+          fontSize: '12px',
+          color: '#d4d4d4'
+        }}>
+          <div>{gameData.gameMode}</div>
+          <div style={{ marginTop: '5px', color: '#C8AA6E' }}>
+            {gameData.gameDuration}
+          </div>
+        </div>
+      </div>
+
+      {/* Decorative corner accent */}
+      <div style={{
+        position: 'absolute',
+        bottom: '8px',
+        left: '8px',
+        width: '20px',
+        height: '20px',
+        borderBottom: `2px solid ${isVictory ? '#0AC8FF' : '#DC3232'}`,
+        borderLeft: `2px solid ${isVictory ? '#0AC8FF' : '#DC3232'}`,
+        opacity: 0.5
+      }} />
+    </div>
+  )
+}
 
 // Music Player Component
 function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
@@ -16,8 +202,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.6)
   const audioRef = useRef<HTMLAudioElement>(null)
-  const hasAttemptedAutoplay = useRef(false)
-  const initialMuted = useRef(true) // Start muted for better autoplay success
+  const hasStartedRef = useRef(false)
 
   // Playlist with weights
   const playlist = [
@@ -43,28 +228,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
 
   const currentTrack = playlist[currentTrackIndex]
 
-  // STRATEGY 0: Force play immediately on mount
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    // Try to play ASAP
-    const forcePlay = () => {
-      audio.play().then(() => {
-        console.log('✓ Initial autoplay succeeded')
-      }).catch(() => {
-        console.log('⚠ Initial autoplay blocked, will retry on interaction')
-      })
-    }
-
-    // Try immediately and after a short delay
-    forcePlay()
-    const timer = setTimeout(forcePlay, 100)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  // AGGRESSIVE AUTO-START MUSIC - Multiple strategies to force autoplay
+  // Auto-play on ANY user interaction
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -72,79 +236,28 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     // Set initial volume
     audio.volume = volume
 
-    let unmutedSuccessfully = false
-
-    const tryUnmute = () => {
-      if (unmutedSuccessfully) return
+    const tryPlay = () => {
+      if (hasStartedRef.current) return
       
-      // Try to unmute and play
       audio.muted = false
-      initialMuted.current = false
       
-      // Force play
       if (audio.paused) {
         audio.play().then(() => {
-          unmutedSuccessfully = true
+          hasStartedRef.current = true
           setIsPlaying(true)
-          console.log('✓ Audio playing and unmuted')
+          console.log('✓ Audio started playing')
         }).catch(err => {
-          console.log('✗ Play attempt failed:', err.message)
-          // Try again in a moment
-          setTimeout(tryUnmute, 500)
+          console.log('⚠ Play blocked, waiting for user interaction')
         })
-      } else {
-        unmutedSuccessfully = true
-        setIsPlaying(true)
-        console.log('✓ Audio unmuted successfully')
       }
     }
 
-    // Strategy 1: Try immediately multiple times
-    const immediateAttempts = [100, 300, 500, 1000, 2000]
-    const timers = immediateAttempts.map(delay => setTimeout(tryUnmute, delay))
-
-    // Strategy 2: Try on EVERY possible user interaction (not just once)
-    const events = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'touchmove', 'mousedown', 'touchend', 'wheel', 'pointerdown']
-    const handler = () => {
-      tryUnmute()
-    }
-    
-    // Add persistent listeners (not { once: true })
-    events.forEach(event => document.addEventListener(event, handler))
-
-    // Strategy 3: Try when window gains focus
-    const focusHandler = () => {
-      tryUnmute()
-    }
-    window.addEventListener('focus', focusHandler)
-
-    // Strategy 4: Try when visibility changes
-    const visibilityHandler = () => {
-      if (!document.hidden) {
-        tryUnmute()
-      }
-    }
-    document.addEventListener('visibilitychange', visibilityHandler)
-
-    // Strategy 5: Continuous monitoring - try every 2 seconds if still muted
-    const monitorInterval = setInterval(() => {
-      if (!unmutedSuccessfully && audio.muted) {
-        console.log('⟳ Retrying autoplay...')
-        tryUnmute()
-      }
-    }, 2000)
-
-    // Mark that we've attempted autoplay
-    if (!hasAttemptedAutoplay.current) {
-      hasAttemptedAutoplay.current = true
-    }
+    // Listen for any user interaction
+    const events = ['click', 'touchstart', 'keydown', 'mousedown', 'touchend', 'pointerdown']
+    events.forEach(event => document.addEventListener(event, tryPlay))
 
     return () => {
-      timers.forEach(timer => clearTimeout(timer))
-      events.forEach(event => document.removeEventListener(event, handler))
-      window.removeEventListener('focus', focusHandler)
-      document.removeEventListener('visibilitychange', visibilityHandler)
-      clearInterval(monitorInterval)
+      events.forEach(event => document.removeEventListener(event, tryPlay))
     }
   }, [volume])
 
@@ -153,11 +266,11 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     if (onUserInteraction && audioRef.current) {
       const audio = audioRef.current
       audio.muted = false
-      initialMuted.current = false
       
       if (audio.paused) {
         audio.volume = volume
         audio.play().then(() => {
+          hasStartedRef.current = true
           setIsPlaying(true)
           console.log('Music started after user interaction')
         }).catch(err => {
@@ -168,30 +281,6 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
       }
     }
   }, [onUserInteraction, volume])
-
-  // Monitor audio play state
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const handlePlay = () => {
-      setIsPlaying(true)
-      console.log('Audio playing')
-    }
-
-    const handlePause = () => {
-      setIsPlaying(false)
-      console.log('Audio paused')
-    }
-
-    audio.addEventListener('play', handlePlay)
-    audio.addEventListener('pause', handlePause)
-
-    return () => {
-      audio.removeEventListener('play', handlePlay)
-      audio.removeEventListener('pause', handlePause)
-    }
-  }, [])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -206,7 +295,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
     
     const handleCanPlay = () => {
       // For track changes, play if was already playing
-      if (isPlaying && hasAttemptedAutoplay.current) {
+      if (isPlaying && hasStartedRef.current) {
         audio.play().catch(err => {
           console.log('Play failed on track change:', err)
         })
@@ -291,8 +380,6 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
       <audio 
         ref={audioRef} 
         src={currentTrack.audioSrc}
-        autoPlay
-        muted={initialMuted.current}
         loop={false}
         preload="auto"
         playsInline
@@ -875,23 +962,6 @@ function SummonersRift() {
   const [showCenterPanel, setShowCenterPanel] = useState(false)
   const [userInteracted, setUserInteracted] = useState(false)
   const controlsRef = useRef<any>(null)
-  const autoClickRef = useRef<HTMLButtonElement>(null)
-  
-  // ULTRA-AGGRESSIVE: Auto-click invisible button to simulate user interaction
-  useEffect(() => {
-    const attemptAutoClick = () => {
-      if (autoClickRef.current) {
-        autoClickRef.current.click()
-        console.log('✓ Auto-clicked invisible button to trigger audio')
-      }
-    }
-
-    // Try multiple times with delays
-    const delays = [10, 50, 100, 200, 500, 1000]
-    const timers = delays.map(delay => setTimeout(attemptAutoClick, delay))
-
-    return () => timers.forEach(timer => clearTimeout(timer))
-  }, [])
   
   // Get secret parameter from URL
   const secret = useMemo(() => {
@@ -994,26 +1064,6 @@ function SummonersRift() {
 
   return (
     <div className="summoners-rift-test" style={{ cursor: 'url(/src/cursor.png), auto' }}>
-      {/* ULTRA-AGGRESSIVE: Invisible auto-click button to force user interaction */}
-      <button
-        ref={autoClickRef}
-        onClick={() => {
-          setUserInteracted(true)
-          console.log('✓ User interaction triggered via auto-click')
-        }}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '1px',
-          height: '1px',
-          opacity: 0,
-          pointerEvents: 'none',
-          zIndex: -1
-        }}
-        aria-hidden="true"
-      />
-
       {/* Inline CSS for League of Legends style animations */}
       <style>{`
         @keyframes fadeInCenter {
@@ -1404,6 +1454,9 @@ function SummonersRift() {
           }}>
             ⬡ Software Developer ⬡
           </div>
+
+          {/* Latest Game*/}
+          {/* <GameCard /> */}
 
           {/* Quote Section */}
           <div style={{ 
