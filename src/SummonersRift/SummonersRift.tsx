@@ -1,4 +1,4 @@
-import { Suspense, useRef, useMemo, useState, useEffect } from 'react'
+import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Sky, Grid, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -9,18 +9,8 @@ import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
 import { isMobile } from '../utils/isMobile'
 
-// Music Player Component
-function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(0.6)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const hasStartedRef = useRef(false)
-
-  // Playlist with weights
-const playlist = [
+// Playlist with weights
+const PLAYLIST = [
   {
     title: 'Fade Away',
     artist: 'Jay Chou',
@@ -41,15 +31,30 @@ const playlist = [
   }
 ]
 
-  const currentTrack = playlist[currentTrackIndex]
+// Format time helper
+const formatTime = (seconds: number) => {
+  if (isNaN(seconds)) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// Music Player Component
+function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [volume, setVolume] = useState(0.6)
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const hasStartedRef = useRef(false)
+
+  const currentTrack = PLAYLIST[currentTrackIndex]
 
   // Auto-play on ANY user interaction
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-
-    // Set initial volume
-    audio.volume = volume
 
     const tryPlay = () => {
       if (hasStartedRef.current) return
@@ -60,9 +65,8 @@ const playlist = [
         audio.play().then(() => {
           hasStartedRef.current = true
           setIsPlaying(true)
-          console.log('✓ Audio started playing')
-        }).catch((err) => {
-          console.log('⚠ Play blocked, waiting for user interaction', err)
+        }).catch(() => {
+          // Play blocked, waiting for user interaction
         })
       }
     }
@@ -73,6 +77,13 @@ const playlist = [
 
     return () => {
       events.forEach(event => document.removeEventListener(event, tryPlay))
+    }
+  }, [])
+  
+  // Set initial volume separately
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume
     }
   }, [volume])
 
@@ -87,15 +98,20 @@ const playlist = [
         audio.play().then(() => {
           hasStartedRef.current = true
           setIsPlaying(true)
-          console.log('Music started after user interaction')
-        }).catch(err => {
-          console.log('Play failed:', err)
+        }).catch(() => {
+          // Play failed
         })
       } else {
         setIsPlaying(true)
       }
     }
   }, [onUserInteraction, volume])
+
+  // Use ref to track isPlaying inside event handlers without causing re-subscriptions
+  const isPlayingRef = useRef(isPlaying)
+  useEffect(() => {
+    isPlayingRef.current = isPlaying
+  }, [isPlaying])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -105,15 +121,13 @@ const playlist = [
     const updateDuration = () => setDuration(audio.duration)
     const handleEnded = () => {
       // Play next track when current ends
-      setCurrentTrackIndex((prev) => (prev + 1) % playlist.length)
+      setCurrentTrackIndex((prev) => (prev + 1) % PLAYLIST.length)
     }
     
     const handleCanPlay = () => {
-      // For track changes, play if was already playing
-      if (isPlaying && hasStartedRef.current) {
-        audio.play().catch(err => {
-          console.log('Play failed on track change:', err)
-        })
+      // For track changes, play if was already playing - use ref to avoid stale closure
+      if (isPlayingRef.current && hasStartedRef.current) {
+        audio.play().catch(() => {})
       }
     }
 
@@ -128,13 +142,7 @@ const playlist = [
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('canplay', handleCanPlay)
     }
-  }, [currentTrackIndex, isPlaying])
-  
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume
-    }
-  }, [volume])
+  }, [currentTrackIndex])
   
   useEffect(() => {
     const audio = audioRef.current
@@ -142,39 +150,33 @@ const playlist = [
     
     // Only handle manual play/pause toggle, not track changes
     if (isPlaying && audio.paused) {
-      audio.play().catch(err => {
-        console.log('Play failed:', err)
-        setIsPlaying(false)
-      })
+      audio.play().catch(() => setIsPlaying(false))
     } else if (!isPlaying && !audio.paused) {
       audio.pause()
     }
   }, [isPlaying])
 
-  const togglePlay = () => setIsPlaying(!isPlaying)
+  const togglePlay = useCallback(() => setIsPlaying(prev => !prev), [])
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value)
     setCurrentTime(time)
     if (audioRef.current) {
       audioRef.current.currentTime = time
     }
-  }
+  }, [])
 
-  const nextTrack = () => {
-    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length)
-  }
+  const nextTrack = useCallback(() => {
+    setCurrentTrackIndex((prev) => (prev + 1) % PLAYLIST.length)
+  }, [])
 
-  const prevTrack = () => {
-    setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length)
-  }
+  const prevTrack = useCallback(() => {
+    setCurrentTrackIndex((prev) => (prev - 1 + PLAYLIST.length) % PLAYLIST.length)
+  }, [])
 
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return '0:00'
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setVolume(parseFloat(e.target.value))
+  }, [])
 
   return (
     <div style={{
@@ -360,7 +362,7 @@ const playlist = [
           max="1"
           step="0.01"
           value={volume}
-          onChange={(e) => setVolume(parseFloat(e.target.value))}
+          onChange={handleVolumeChange}
           style={{
             flex: 1,
             height: '4px',
@@ -394,6 +396,16 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   const autoMoveSpeed = useRef(0.02)
   const rotationSpeed = useRef(0.01)
   
+  // Reusable THREE.js objects to avoid GC pressure
+  const tempQuaternion = useRef(new THREE.Quaternion())
+  const tempEuler = useRef(new THREE.Euler())
+  const directionVec = useRef(new THREE.Vector3())
+  const forwardVec = useRef(new THREE.Vector3())
+  const rightVec = useRef(new THREE.Vector3())
+  const upVec = useRef(new THREE.Vector3(0, 1, 0))
+  const movementVec = useRef(new THREE.Vector3())
+  const lookTargetVec = useRef(new THREE.Vector3())
+  
   // Auto-start cinema mode when triggered
   useEffect(() => {
     if (startCinema) {
@@ -402,20 +414,23 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   }, [startCinema])
   
   // Home position
-  const homePosition = new THREE.Vector3(-61.2, 2.7, 49.0)
+  const homePosition = useMemo(() => new THREE.Vector3(-61.2, 2.7, 49.0), [])
+  const homeYawRad = useMemo(() => THREE.MathUtils.degToRad(150), [])
+  const homePitchRad = useMemo(() => THREE.MathUtils.degToRad(-15), [])
+  const lookDistance = 30
   
   // Bounding box corners: (35,60,-40), (-170,60,-40), (-170,60,160), (35,60,160)
-  const boundingBox = {
+  const boundingBox = useMemo(() => ({
     minX: -170,
     maxX: 35,
     minY: 55,
     maxY: 65,
     minZ: -40,
     maxZ: 160
-  }
+  }), [])
   
   // Center of the map to look toward
-  const mapCenter = new THREE.Vector3(-67.85, 0, 60)
+  const mapCenter = useMemo(() => new THREE.Vector3(-67.85, 0, 60), [])
 
   // Initialize target when auto-movement is enabled
   useEffect(() => {
@@ -437,10 +452,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       // Toggle auto-movement with 'C' key
       if (key === 'c') {
         e.preventDefault()
-        setAutoMove(prev => {
-          console.log('Toggling auto-movement:', !prev)
-          return !prev
-        })
+        setAutoMove(prev => !prev)
       } else {
         keysPressed.current.add(key)
       }
@@ -462,13 +474,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   useFrame((state) => {
     // Home animation mode - smoothly return to home position
     if (goingHome) {
-    const targetYaw = 150 // Your desired home yaw
-    const targetPitch = -15 // Your desired home pitch
-    
-    // Convert to radians
-    const targetYawRad = THREE.MathUtils.degToRad(targetYaw)
-    const targetPitchRad = THREE.MathUtils.degToRad(targetPitch)
-      
       // Keep OrbitControls enabled - user can still move camera
       if (controlsRef.current) {
         controlsRef.current.enabled = true
@@ -478,21 +483,18 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       camera.position.lerp(homePosition, 0.01)
       
       // Gently pull rotation toward home orientation (slower slerp rate)
-      const targetQuaternion = new THREE.Quaternion()
-      const targetEuler = new THREE.Euler(targetPitchRad, targetYawRad, 0, 'YXZ')
-      targetQuaternion.setFromEuler(targetEuler)
+      tempEuler.current.set(homePitchRad, homeYawRad, 0, 'YXZ')
+      tempQuaternion.current.setFromEuler(tempEuler.current)
       
-      camera.quaternion.slerp(targetQuaternion, 0.01)
+      camera.quaternion.slerp(tempQuaternion.current, 0.01)
       
       // Update OrbitControls target based on camera look direction
       if (controlsRef.current) {
-        const lookDistance = 30
-        const lookTarget = new THREE.Vector3()
-        camera.getWorldDirection(lookTarget)
-        lookTarget.multiplyScalar(lookDistance)
-        lookTarget.add(camera.position)
+        camera.getWorldDirection(lookTargetVec.current)
+        lookTargetVec.current.multiplyScalar(lookDistance)
+        lookTargetVec.current.add(camera.position)
         
-        controlsRef.current.target.copy(lookTarget)
+        controlsRef.current.target.copy(lookTargetVec.current)
         controlsRef.current.update()
       }
       
@@ -518,9 +520,9 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     if (autoMove) {
       const time = state.clock.elapsedTime
       
-      // Check if reached target, generate new one
-      const distanceToTarget = camera.position.distanceTo(autoMoveTarget.current)
-      if (distanceToTarget < 8) {
+      // Check if reached target, generate new one (use squared distance to avoid sqrt)
+      const distanceToTargetSq = camera.position.distanceToSquared(autoMoveTarget.current)
+      if (distanceToTargetSq < 64) { // 8^2 = 64
         // Generate new random target within bounding box
         autoMoveTarget.current.set(
           Math.random() * (boundingBox.maxX - boundingBox.minX) + boundingBox.minX,
@@ -532,13 +534,13 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       }
       
       // Smooth movement toward target with varying speed
-      const direction = new THREE.Vector3().subVectors(autoMoveTarget.current, camera.position)
-      direction.normalize()
+      directionVec.current.subVectors(autoMoveTarget.current, camera.position)
+      directionVec.current.normalize()
       
       const speedVariation = Math.sin(time * 0.3) * 0.04 + autoMoveSpeed.current
-      const movement = direction.multiplyScalar(speedVariation)
+      movementVec.current.copy(directionVec.current).multiplyScalar(speedVariation)
       
-      camera.position.add(movement)
+      camera.position.add(movementVec.current)
       
       // Camera looks toward map center with smooth variation
       if (controlsRef.current) {
@@ -546,14 +548,14 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
         const offsetY = Math.sin(time * rotationSpeed.current * 1.5) * 8
         const offsetZ = Math.cos(time * rotationSpeed.current * 2) * 15
         
-        const lookTarget = new THREE.Vector3(
+        lookTargetVec.current.set(
           mapCenter.x + offsetX,
           mapCenter.y + offsetY,
           mapCenter.z + offsetZ
         )
         
         const lerpAmount = Math.min(rotationSpeed.current * 0.5, 0.05)
-        controlsRef.current.target.lerp(lookTarget, lerpAmount)
+        controlsRef.current.target.lerp(lookTargetVec.current, lerpAmount)
         controlsRef.current.update()
       }
       
@@ -578,47 +580,44 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     // Manual WASD controls
     if (keysPressed.current.size === 0) return
 
-    // Create direction vectors using camera's rotation matrix
-    const forward = new THREE.Vector3()
-    const right = new THREE.Vector3()
-    
-    // Get camera's forward direction
-    camera.getWorldDirection(forward)
-    forward.y = 0 // Keep movement on XZ plane
-    forward.normalize()
+    // Get camera's forward direction - reuse refs
+    camera.getWorldDirection(forwardVec.current)
+    forwardVec.current.y = 0
+    forwardVec.current.normalize()
     
     // Get camera's right direction
-    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize()
+    rightVec.current.crossVectors(forwardVec.current, upVec.current).normalize()
     
-    const movement = new THREE.Vector3()
+    // Reset movement vector
+    movementVec.current.set(0, 0, 0)
 
     // Calculate movement based on keys pressed
     if (keysPressed.current.has('w')) {
-      movement.add(forward.clone().multiplyScalar(moveSpeed))
+      movementVec.current.addScaledVector(forwardVec.current, moveSpeed)
     }
     if (keysPressed.current.has('s')) {
-      movement.add(forward.clone().multiplyScalar(-moveSpeed))
+      movementVec.current.addScaledVector(forwardVec.current, -moveSpeed)
     }
     if (keysPressed.current.has('a')) {
-      movement.add(right.clone().multiplyScalar(-moveSpeed))
+      movementVec.current.addScaledVector(rightVec.current, -moveSpeed)
     }
     if (keysPressed.current.has('d')) {
-      movement.add(right.clone().multiplyScalar(moveSpeed))
+      movementVec.current.addScaledVector(rightVec.current, moveSpeed)
     }
     if (keysPressed.current.has('q')) {
-      movement.y -= moveSpeed // Move down
+      movementVec.current.y -= moveSpeed // Move down
     }
     if (keysPressed.current.has('e')) {
-      movement.y += moveSpeed // Move up
+      movementVec.current.y += moveSpeed // Move up
     }
 
-    // Apply movement to camera and controls target
-    if (movement.length() > 0) {
-      camera.position.add(movement)
+    // Apply movement to camera and controls target (use lengthSq to avoid sqrt)
+    if (movementVec.current.lengthSq() > 0) {
+      camera.position.add(movementVec.current)
       
       // Move OrbitControls target along with camera to prevent unwanted rotation
       if (controlsRef.current) {
-        controlsRef.current.target.add(movement)
+        controlsRef.current.target.add(movementVec.current)
         controlsRef.current.update()
       }
       
@@ -642,9 +641,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   return null
 }
 
-function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
-  const modelRef = useRef<THREE.Group>(null)
-  
+function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void; isMobileDevice: boolean }) {
   // Load optimized Summoner's Rift with full textures
   const { scene } = useGLTF('/rift-opt.glb', true, true)
 
@@ -657,14 +654,12 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
 
   // VRAM Optimization: Process materials and textures
   useMemo(() => {
-    console.log('=== Loaded Scene Info ===')
     const materialsCache = new Map<string, THREE.Material>()
-    const mobile = isMobile()
+    const mobile = isMobileDevice
     
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh
-        console.log('Mesh:', mesh.name)
         
         // VRAM Optimization 1: Share materials across meshes
         if (mesh.material) {
@@ -686,14 +681,12 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
                 texture.magFilter = THREE.LinearFilter
                 texture.generateMipmaps = false
                 texture.anisotropy = 0
-                console.log('Mobile texture settings applied')
               } else {
                 // Desktop: Better quality with mipmaps and filtering
                 texture.minFilter = THREE.LinearMipmapLinearFilter
                 texture.magFilter = THREE.LinearFilter
                 texture.generateMipmaps = true
                 texture.anisotropy = 2
-                console.log('Desktop texture settings applied')
               }
             }
             
@@ -709,22 +702,10 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
             
             if (mobile) {
               // Mobile: Remove expensive texture maps entirely
-              if (standardMat.normalMap) {
-                standardMat.normalMap = null
-                console.log('Removed normal map (mobile)')
-              }
-              if (standardMat.roughnessMap) {
-                standardMat.roughnessMap = null
-                console.log('Removed roughness map (mobile)')
-              }
-              if (standardMat.metalnessMap) {
-                standardMat.metalnessMap = null
-                console.log('Removed metalness map (mobile)')
-              }
-              if (standardMat.aoMap) {
-                standardMat.aoMap = null
-                console.log('Removed AO map (mobile)')
-              }
+              if (standardMat.normalMap) standardMat.normalMap = null
+              if (standardMat.roughnessMap) standardMat.roughnessMap = null
+              if (standardMat.metalnessMap) standardMat.metalnessMap = null
+              if (standardMat.aoMap) standardMat.aoMap = null
               
               // Set simple constant values for mobile
               standardMat.roughness = 0.8
@@ -737,12 +718,8 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
               }
               
               // Only set constant values if maps don't exist
-              if (!standardMat.roughnessMap) {
-                standardMat.roughness = 0.8
-              }
-              if (!standardMat.metalnessMap) {
-                standardMat.metalness = 0.0
-              }
+              if (!standardMat.roughnessMap) standardMat.roughness = 0.8
+              if (!standardMat.metalnessMap) standardMat.metalness = 0.0
             }
           }
         }
@@ -773,9 +750,7 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
         mesh.frustumCulled = true
       }
     })
-    
-    console.log(`Material instances reduced by sharing: ${materialsCache.size} unique materials`)
-  }, [scene])
+  }, [scene, isMobileDevice])
 
   // VRAM Optimization 6: Cleanup on unmount
   useEffect(() => {
@@ -805,7 +780,7 @@ function SummonersRiftModel({ onReady }: { onReady?: () => void }) {
   }, [scene])
 
   return (
-    <group ref={modelRef}>
+    <group>
       <primitive object={scene} scale={0.01} position={[0, 0, 0]} />
     </group>
   )
@@ -825,7 +800,7 @@ function SummonersRift() {
   const controlsRef = useRef<any>(null)
 
   // Mobile detection
-  const mobile = isMobile()
+  const mobile = useMemo(() => isMobile(), [])
   
   // Get secret parameter from URL
   const secret = useMemo(() => {
@@ -834,50 +809,50 @@ function SummonersRift() {
   }, [])
   
   // Home position for distance calculation
-  const homePosition = { x: -61, y: 2.7, z: 49.0 }
+  const homePosition = useMemo(() => ({ x: -61, y: 2.7, z: 49.0 }), [])
   
-  // Camera spawn at random position
-  const randomCamera = useMemo(() => {
+  // Camera spawn at random position - use lazy initialization for initial state
+  const [initialCamera] = useState(() => {
     const position = {
       x: -170 + Math.random() * (35 - (-170)),
       y: 40 + Math.random() * 60,
       z: -40 + Math.random() * (160 - (-40))
     }
-    
-    const rotation = {
+    return position
+  })
+  
+  // Initialize camera state on mount only
+  useEffect(() => {
+    setCameraPos(initialCamera)
+    setCameraRotation({
       yaw: Math.random() * 360 - 180,
       pitch: -90 + Math.random() * 60
-    }
-    
-    setCameraPos(position)
-    setCameraRotation(rotation)
-    return position
-  }, [])
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   
   // Handle model ready
-  const handleReady = () => {
+  const handleReady = useCallback(() => {
     setIsReady(true)
-  }
+  }, [])
   
   // Handle going home
-  const handleGoHome = () => {
+  const handleGoHome = useCallback(() => {
     setGoingHome(true)
-  }
+  }, [])
   
-  // Handle start exploring - disable going home and enable cinema mode
-  const handleStartExploring = () => {
+  // Handle start exploring
+  const handleStartExploring = useCallback(() => {
     setGoingHome(false)
     setStartCinema(true)
     setUserInteracted(true) // Trigger music playback
-  }
+  }, [])
   
   // Toggle cinema mode handler (mobile)
-  // Dispatch a synthetic 'keydown' event for 'c' so it behaves exactly like pressing the C key
-  const handleToggleCinema = () => {
-      const evt = new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', keyCode: 67, bubbles: true, cancelable: true })
-      window.dispatchEvent(evt)
-      setStartCinema(prev => !prev)
-  }
+  const handleToggleCinema = useCallback(() => {
+    const evt = new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', keyCode: 67, bubbles: true, cancelable: true })
+    window.dispatchEvent(evt)
+    setStartCinema(prev => !prev)
+  }, [])
   
   // Custom cursor and cleanup
   useEffect(() => {
@@ -921,18 +896,18 @@ function SummonersRift() {
   // Check distance to home position and show panel when close
   useEffect(() => {
     if (goingHome) {
-      if (showCenterPanel) return;
-      const distance = Math.sqrt(
-        Math.pow(cameraPos.x - homePosition.x, 2) +
-        Math.pow(cameraPos.y - homePosition.y, 2) +
-        Math.pow(cameraPos.z - homePosition.z, 2)
-      )
+      if (showCenterPanel) return
+      // Use squared distance to avoid sqrt (faster comparison)
+      const dx = cameraPos.x - homePosition.x
+      const dy = cameraPos.y - homePosition.y
+      const dz = cameraPos.z - homePosition.z
+      const distanceSquared = dx * dx + dy * dy + dz * dz
       
-      setShowCenterPanel(distance < 4)
+      setShowCenterPanel(distanceSquared < 16) // 4^2 = 16
     } else {
       setShowCenterPanel(false)
     }
-  }, [cameraPos, goingHome])
+  }, [cameraPos, goingHome, homePosition, showCenterPanel])
 
   return (
     <div className="summoners-rift-test" style={{ cursor: 'url(/cursor.png), auto' }}>
@@ -1083,7 +1058,7 @@ function SummonersRift() {
           left: 0
         }}
         camera={{ 
-          position: [randomCamera.x, randomCamera.y, randomCamera.z],
+          position: [initialCamera.x, initialCamera.y, initialCamera.z],
           fov: 60,
           near: 0.1,
           far: mobile ? 500 : 1000  // Mobile: Reduced render distance
@@ -1154,7 +1129,7 @@ function SummonersRift() {
 
         {/* Load the Summoner's Rift Model */}
         <Suspense fallback={<LoadingIndicator />}>
-          <SummonersRiftModel onReady={handleReady} />
+          <SummonersRiftModel onReady={handleReady} isMobileDevice={mobile} />
         </Suspense>
 
         {/* WASD Camera Controller */}
@@ -1178,24 +1153,6 @@ function SummonersRift() {
           target={[-67.85, 0, 60]}
           enableDamping={true}
           dampingFactor={0.05}
-          onChange={(e) => {
-            if (e?.target) {
-              const camera = e.target.object
-              // Update position
-              setCameraPos({
-                x: camera.position.x,
-                y: camera.position.y,
-                z: camera.position.z
-              })
-              // Update rotation
-              const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
-              const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
-              setCameraRotation({
-                yaw: yaw,
-                pitch: pitch
-              })
-            }
-          }}
         />
       </Canvas>
 
