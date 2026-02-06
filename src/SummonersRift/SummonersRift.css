@@ -1,38 +1,4 @@
-/* Cinema Toggle Button for Mobile */
-.cinema-toggle-mobile {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 2001;
-}
-
-.cinema-toggle-mobile button {
-  background: linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%);
-  border: 2px solid #F0E6D2;
-  color: #0A1428;
-  font-size: 16px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  padding: 12px 28px;
-  border-radius: 8px;
-  cursor: pointer;
-  box-shadow: 0 0 15px rgba(10, 200, 255, 0.3);
-  font-family: 'Beaufort for LOL', Times New Roman, serif;
-  transition: all 0.3s;
-}
-
-.cinema-toggle-mobile button.active {
-  background: linear-gradient(135deg, #0AC8FF 0%, #C8AA6E 100%);
-  color: #0A1428;
-}
-
-/* Cinema mode effect for mobile */
-.cinema-mode-mobile {
-  filter: brightness(0.8) blur(2px);
-  transition: filter 0.3s;
-}
-/* Summoner's Rift Test Container */
+/* Summoner's Rift Container */
 .summoners-rift-test {
   width: 100vw;
   height: 100vh;
@@ -45,65 +11,6 @@
   display: block !important;
   width: 100% !important;
   height: 100% !important;
-}
-
-/* Header */
-.test-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  padding: 20px 30px;
-  background: linear-gradient(180deg, rgba(1, 10, 19, 0.95) 0%, rgba(1, 10, 19, 0) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.test-title {
-  font-size: 28px;
-  font-weight: bold;
-  color: #c8aa6e;
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  text-shadow: 
-    0 0 10px rgba(200, 170, 110, 0.5),
-    2px 2px 4px rgba(0, 0, 0, 0.8);
-}
-
-.test-info {
-  flex: 1;
-  text-align: center;
-  color: #00d4ff;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 1px;
-}
-
-.back-button {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, rgba(200, 170, 110, 0.2) 0%, rgba(200, 170, 110, 0.1) 100%);
-  border: 2px solid #c8aa6e;
-  border-radius: 6px;
-  color: #c8aa6e;
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: all 0.3s ease;
-}
-
-.back-button:hover {
-  background: linear-gradient(135deg, rgba(200, 170, 110, 0.3) 0%, rgba(200, 170, 110, 0.2) 100%);
-  border-color: #00d4ff;
-  color: #00d4ff;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
 }
 
 /* Loading Overlay */
@@ -142,31 +49,6 @@
   text-shadow: 0 0 15px rgba(200, 170, 110, 0.8);
   animation: pulse 2s ease-in-out infinite;
   margin-bottom: 20px;
-}
-
-.progress-bar {
-  width: 300px;
-  height: 8px;
-  background: rgba(200, 170, 110, 0.2);
-  border-radius: 10px;
-  overflow: hidden;
-  margin: 20px auto;
-  border: 1px solid rgba(200, 170, 110, 0.5);
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #c8aa6e 0%, #00d4ff 100%);
-  transition: width 0.3s ease;
-  box-shadow: 0 0 10px rgba(200, 170, 110, 0.8);
-}
-
-.progress-text {
-  color: #00d4ff;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  margin-top: 10px;
 }
 
 /* Controls Info */
@@ -231,21 +113,6 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .test-header {
-    padding: 15px 20px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .test-title {
-    font-size: 20px;
-  }
-
-  .test-info {
-    text-align: left;
-    width: 100%;
-  }
-
   .controls-info {
     bottom: 10px;
     left: 10px;
@@ -262,4 +129,3 @@
     font-size: 12px;
   }
 }
-

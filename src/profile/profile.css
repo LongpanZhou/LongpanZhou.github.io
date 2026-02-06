@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
+/* Montserrat font loaded via <link> in index.html for non-blocking load */
 
 .lp-rounded-picture {
     display: flex;
@@ -76,7 +76,6 @@
 
 .lp-bigger-card {
     flex: 1 1 400px;
-    height: 100%;
     margin: 0 auto;
     padding: 3rem;
     background-color: rgba(255, 255, 255, 0.85);
@@ -105,17 +104,6 @@ text-decoration: none;
 color: #0077b5;
 }
 
-.lp-icon-list .fa-github:hover {
-color: #333;
-}
-
-.lp-icon-list .fa-leetcode:hover {
-color: #ff7f00;
-}
-
-.lp-icon-list .fa-envelope:hover {
-color: #d14836;
-}
 
 .lp-icon {
     width: 32px;
@@ -140,17 +128,6 @@ color: #d14836;
     -webkit-background-clip: text;
 }
 
-.lp-card-title {
-    font-size: 3rem;
-    font-weight: bold;
-    font-family: 'Montserrat', sans-serif;
-    color: #000; /* Fallback color */
-    background: linear-gradient(to right, lightblue, #6a9eff, #4c7fdb, #5E4B8D);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
-    display: inline-block; /* Ensure the gradient applies correctly */
-}
 
 .lp-aboutme-subtitle {
     font-size: 1.5rem;
@@ -290,16 +267,7 @@ color: #d14836;
     }
 }
 
-/* Ensure metaball canvas is behind content */
-canvas {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    z-index: -1 !important;
-    pointer-events: none !important;
-}
+/* Metaball canvas is positioned by MetaballBackground component */
 
 /* Coffee hover effect */
 .coffee-hover {

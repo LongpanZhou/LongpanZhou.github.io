@@ -1,6 +1,6 @@
 import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Sky, Grid, useGLTF } from '@react-three/drei'
+import { OrbitControls, Grid, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import './SummonersRift.css'
 import Email from '../profile/icons/gmail.svg'
@@ -9,25 +9,21 @@ import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
 import { isMobile } from '../utils/isMobile'
 
-// Playlist with weights
 const PLAYLIST = [
   {
     title: 'Fade Away',
     artist: 'Jay Chou',
     audioSrc: '/music/ Jay Chou Fade AwayOfficial MV.mp3',
-    weight: 0.6
   },
   {
     title: 'Lucid Dreams',
     artist: 'Juice WRLD',
     audioSrc: '/music/Juice WRLD - Lucid Dreams Official Music Video.mp3',
-    weight: 0.2
   },
   {
     title: 'SKAI ISYOURGOD',
     artist: 'SKAI',
     audioSrc: '/music/ SKAI ISYOURGODOfficial Music Video.mp3',
-    weight: 0.2
   }
 ]
 
@@ -198,7 +194,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
         ref={audioRef} 
         src={currentTrack.audioSrc}
         loop={false}
-        preload="auto"
+        preload="metadata"
         playsInline
         crossOrigin="anonymous"
       />
@@ -379,12 +375,13 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
 }
 
 // WASD Camera Controller Component with Auto-Movement
-function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, startCinema }: { 
+function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, startCinema, onNearHome }: {
   onPositionChange: (pos: { x: number, y: number, z: number }) => void,
   onRotationChange: (rot: { yaw: number, pitch: number }) => void,
   controlsRef: React.MutableRefObject<any>,
   goingHome: boolean,
-  startCinema: boolean
+  startCinema: boolean,
+  onNearHome: (near: boolean) => void
 }) {
   const { camera } = useThree()
   const keysPressed = useRef<Set<string>>(new Set())
@@ -471,59 +468,78 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     }
   }, [])
 
+  // Throttle state updates to ~10fps instead of 60fps
+  const lastUpdateTime = useRef(0)
+  const UPDATE_INTERVAL = 100 // ms
+  const wasNearHome = useRef(false)
+
+  const throttledUpdate = (time: number) => {
+    if (time - lastUpdateTime.current < UPDATE_INTERVAL) return
+    lastUpdateTime.current = time
+
+    const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
+    const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
+
+    onPositionChange({
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z
+    })
+    onRotationChange({ yaw, pitch })
+  }
+
+  const checkNearHome = () => {
+    if (!goingHome) {
+      if (wasNearHome.current) {
+        wasNearHome.current = false
+        onNearHome(false)
+      }
+      return
+    }
+    const dx = camera.position.x - homePosition.x
+    const dy = camera.position.y - homePosition.y
+    const dz = camera.position.z - homePosition.z
+    const near = (dx * dx + dy * dy + dz * dz) < 16
+    if (near !== wasNearHome.current) {
+      wasNearHome.current = near
+      onNearHome(near)
+    }
+  }
+
   useFrame((state) => {
+    const now = performance.now()
+
     // Home animation mode - smoothly return to home position
     if (goingHome) {
-      // Keep OrbitControls enabled - user can still move camera
       if (controlsRef.current) {
         controlsRef.current.enabled = true
       }
-      
-      // Gently pull camera toward home position
+
       camera.position.lerp(homePosition, 0.01)
-      
-      // Gently pull rotation toward home orientation (slower slerp rate)
+
       tempEuler.current.set(homePitchRad, homeYawRad, 0, 'YXZ')
       tempQuaternion.current.setFromEuler(tempEuler.current)
-      
       camera.quaternion.slerp(tempQuaternion.current, 0.01)
-      
-      // Update OrbitControls target based on camera look direction
+
       if (controlsRef.current) {
         camera.getWorldDirection(lookTargetVec.current)
         lookTargetVec.current.multiplyScalar(lookDistance)
         lookTargetVec.current.add(camera.position)
-        
         controlsRef.current.target.copy(lookTargetVec.current)
         controlsRef.current.update()
       }
-      
-      // Calculate yaw and pitch for display
-      const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
-      const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
-      
-      // Update display
-      onPositionChange({
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z
-      })
-      onRotationChange({
-        yaw: yaw,
-        pitch: pitch
-      })
-      
-      return // Skip other controls when going home
+
+      throttledUpdate(now)
+      checkNearHome()
+      return
     }
-    
+
     // Auto-movement mode
     if (autoMove) {
       const time = state.clock.elapsedTime
-      
-      // Check if reached target, generate new one (use squared distance to avoid sqrt)
+
       const distanceToTargetSq = camera.position.distanceToSquared(autoMoveTarget.current)
-      if (distanceToTargetSq < 64) { // 8^2 = 64
-        // Generate new random target within bounding box
+      if (distanceToTargetSq < 64) {
         autoMoveTarget.current.set(
           Math.random() * (boundingBox.maxX - boundingBox.minX) + boundingBox.minX,
           Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY,
@@ -532,66 +548,44 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
         autoMoveSpeed.current = 0.025 + Math.random() * 0.1
         rotationSpeed.current = 0.01 + Math.random() * 0.375
       }
-      
-      // Smooth movement toward target with varying speed
+
       directionVec.current.subVectors(autoMoveTarget.current, camera.position)
       directionVec.current.normalize()
-      
+
       const speedVariation = Math.sin(time * 0.3) * 0.04 + autoMoveSpeed.current
       movementVec.current.copy(directionVec.current).multiplyScalar(speedVariation)
-      
       camera.position.add(movementVec.current)
-      
-      // Camera looks toward map center with smooth variation
+
       if (controlsRef.current) {
         const offsetX = Math.sin(time * rotationSpeed.current * 2) * 15
         const offsetY = Math.sin(time * rotationSpeed.current * 1.5) * 8
         const offsetZ = Math.cos(time * rotationSpeed.current * 2) * 15
-        
+
         lookTargetVec.current.set(
           mapCenter.x + offsetX,
           mapCenter.y + offsetY,
           mapCenter.z + offsetZ
         )
-        
+
         const lerpAmount = Math.min(rotationSpeed.current * 0.5, 0.05)
         controlsRef.current.target.lerp(lookTargetVec.current, lerpAmount)
         controlsRef.current.update()
       }
-      
-      // Calculate yaw and pitch from camera rotation
-      const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
-      const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
-      
-      // Update position and rotation display
-      onPositionChange({
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z
-      })
-      onRotationChange({
-        yaw: yaw,
-        pitch: pitch
-      })
-      
-      return // Skip manual controls when auto-moving
+
+      throttledUpdate(now)
+      return
     }
-    
+
     // Manual WASD controls
     if (keysPressed.current.size === 0) return
 
-    // Get camera's forward direction - reuse refs
     camera.getWorldDirection(forwardVec.current)
     forwardVec.current.y = 0
     forwardVec.current.normalize()
-    
-    // Get camera's right direction
+
     rightVec.current.crossVectors(forwardVec.current, upVec.current).normalize()
-    
-    // Reset movement vector
     movementVec.current.set(0, 0, 0)
 
-    // Calculate movement based on keys pressed
     if (keysPressed.current.has('w')) {
       movementVec.current.addScaledVector(forwardVec.current, moveSpeed)
     }
@@ -605,40 +599,49 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       movementVec.current.addScaledVector(rightVec.current, moveSpeed)
     }
     if (keysPressed.current.has('q')) {
-      movementVec.current.y -= moveSpeed // Move down
+      movementVec.current.y -= moveSpeed
     }
     if (keysPressed.current.has('e')) {
-      movementVec.current.y += moveSpeed // Move up
+      movementVec.current.y += moveSpeed
     }
 
-    // Apply movement to camera and controls target (use lengthSq to avoid sqrt)
     if (movementVec.current.lengthSq() > 0) {
       camera.position.add(movementVec.current)
-      
-      // Move OrbitControls target along with camera to prevent unwanted rotation
+
       if (controlsRef.current) {
         controlsRef.current.target.add(movementVec.current)
         controlsRef.current.update()
       }
-      
-      // Calculate yaw and pitch from camera rotation
-      const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
-      const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
-      
-      // Update position and rotation display
-      onPositionChange({
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z
-      })
-      onRotationChange({
-        yaw: yaw,
-        pitch: pitch
-      })
+
+      throttledUpdate(now)
     }
   })
 
   return null
+}
+
+// Directional light that targets the map center instead of [0,0,0]
+function CenteredDirectionalLight({ intensity }: { intensity: number }) {
+  const lightRef = useRef<THREE.DirectionalLight>(null)
+  const targetRef = useRef<THREE.Object3D>(null)
+
+  useEffect(() => {
+    if (lightRef.current && targetRef.current) {
+      lightRef.current.target = targetRef.current
+    }
+  }, [])
+
+  return (
+    <>
+      <directionalLight
+        ref={lightRef}
+        position={[-67.85, 250, 60]}
+        intensity={intensity}
+        castShadow={false}
+      />
+      <object3D ref={targetRef} position={[-67.85, 0, 60]} />
+    </>
+  )
 }
 
 function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void; isMobileDevice: boolean }) {
@@ -693,7 +696,6 @@ function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void;
             // VRAM Optimization 3: Material simplification - Mobile vs Desktop
             const standardMat = material as THREE.MeshStandardMaterial
             
-            // Ensure proper rendering
             standardMat.side = THREE.FrontSide
             standardMat.transparent = false
             standardMat.opacity = 1.0
@@ -789,6 +791,52 @@ function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void;
 // Preload the model
 useGLTF.preload('/rift-opt.glb')
 
+// Reusable social link component for LoL-styled icons
+function SocialLink({ href, title, icon, alt, mobile, external = false }: {
+  href: string, title: string, icon: string, alt: string, mobile: boolean, external?: boolean
+}) {
+  const size = mobile ? '40px' : '50px'
+  const imgSize = mobile ? '18px' : '24px'
+  return (
+    <a
+      href={href}
+      title={title}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: size,
+        height: size,
+        background: 'rgba(200, 170, 110, 0.1)',
+        border: '2px solid #C8AA6E',
+        color: '#C8AA6E',
+        fontSize: mobile ? '18px' : '24px',
+        transition: 'all 0.3s ease',
+        textDecoration: 'none',
+        clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
+        boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
+        e.currentTarget.style.borderColor = '#0AC8FF'
+        e.currentTarget.style.color = '#0AC8FF'
+        e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
+        e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
+        e.currentTarget.style.borderColor = '#C8AA6E'
+        e.currentTarget.style.color = '#C8AA6E'
+        e.currentTarget.style.transform = 'translateY(0) scale(1)'
+        e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
+      }}
+    >
+      <img src={icon} alt={alt} style={{ width: imgSize, height: imgSize }} />
+    </a>
+  )
+}
+
 function SummonersRift() {
   const [isReady, setIsReady] = useState(false)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
@@ -808,8 +856,10 @@ function SummonersRift() {
     return params.get('secret') === 'false' ? false : true
   }, [])
   
-  // Home position for distance calculation
-  const homePosition = useMemo(() => ({ x: -61, y: 2.7, z: 49.0 }), [])
+  // onNearHome callback for CameraController to check distance
+  const handleNearHome = useCallback((near: boolean) => {
+    setShowCenterPanel(near)
+  }, [])
   
   // Camera spawn at random position - use lazy initialization for initial state
   const [initialCamera] = useState(() => {
@@ -849,43 +899,21 @@ function SummonersRift() {
   
   // Toggle cinema mode handler (mobile)
   const handleToggleCinema = useCallback(() => {
-    const evt = new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', keyCode: 67, bubbles: true, cancelable: true })
-    window.dispatchEvent(evt)
     setStartCinema(prev => !prev)
   }, [])
   
-  // Custom cursor and cleanup
+  // Custom cursor styling
   useEffect(() => {
-    // Force custom cursor styling
     const style = document.createElement('style')
     style.id = 'summoners-rift-cursor-override'
     style.innerHTML = `
       body, body *, .summoners-rift-test, .summoners-rift-test * {
         cursor: url(/cursor.png), auto !important;
       }
-      .hide-cursor, .hide-cursor * {
-        cursor: url(/cursor.png), auto !important;
-      }
-      .dropping-text {
-        display: none !important;
-      }
     `
     document.head.appendChild(style)
-    
-    // Remove animal clicks elements
-    const removeAnimalClicks = () => {
-      document.body.classList.remove('hide-cursor')
-      const animalElements = document.querySelectorAll('.dropping-text')
-      animalElements.forEach(el => el.remove())
-    }
-    
-    // Use MutationObserver for better performance
-    removeAnimalClicks()
-    const observer = new MutationObserver(removeAnimalClicks)
-    observer.observe(document.body, { childList: true, subtree: true })
-    
+
     return () => {
-      observer.disconnect()
       const customStyle = document.getElementById('summoners-rift-cursor-override')
       if (customStyle) {
         customStyle.remove()
@@ -893,21 +921,6 @@ function SummonersRift() {
     }
   }, [])
 
-  // Check distance to home position and show panel when close
-  useEffect(() => {
-    if (goingHome) {
-      if (showCenterPanel) return
-      // Use squared distance to avoid sqrt (faster comparison)
-      const dx = cameraPos.x - homePosition.x
-      const dy = cameraPos.y - homePosition.y
-      const dz = cameraPos.z - homePosition.z
-      const distanceSquared = dx * dx + dy * dy + dz * dz
-      
-      setShowCenterPanel(distanceSquared < 16) // 4^2 = 16
-    } else {
-      setShowCenterPanel(false)
-    }
-  }, [cameraPos, goingHome, homePosition, showCenterPanel])
 
   return (
     <div className="summoners-rift-test" style={{ cursor: 'url(/cursor.png), auto' }}>
@@ -1073,42 +1086,12 @@ function SummonersRift() {
         dpr={ [1, 1.5]}
       >
         {/* Background */}
-        <color attach="background" args={['#0a1428']} />
-        {/* Fog - Mobile: Closer fog to cull distant objects earlier */}
-        <fog attach="fog" args={['#0a1428', 100, 250]} />
+        <color attach="background" args={['#c8dbe6']} />
+        <fog attach="fog" args={['#c8dbe6', 200, 500]} />
         
         {/* Lighting - Mobile vs Desktop */}
-        {mobile ? (
-          /* Mobile: Only ambient + 1 directional light (2 lights total) */
-          <>
-            <ambientLight intensity={6} />
-            <directionalLight
-              position={[-75, 250, 75]}
-              intensity={6}
-              castShadow={false}
-            />
-          </>
-        ) : (
-          /* Desktop: Ambient + directional + point + hemisphere lights (4 lights total) */
-          <>
-            <ambientLight intensity={6} />
-            <directionalLight
-              position={[-75, 250, 75]}
-              intensity={6}
-              castShadow={false}
-            />
-            <pointLight position={[-75, 200, 75]} intensity={300} distance={300} decay={2} />
-            <hemisphereLight args={['#ffffff', '#ffffff', 4]} />
-          </>
-        )}
+        <ambientLight intensity={25} />
 
-        {/* Sky */}
-        <Sky
-          distance={450000}
-          sunPosition={[100, 20, 100]}
-          inclination={0.6}
-          azimuth={0.25}
-        />
 
         {/* Grid for reference */}
         {!mobile && (
@@ -1133,12 +1116,13 @@ function SummonersRift() {
         </Suspense>
 
         {/* WASD Camera Controller */}
-        <CameraController 
-          onPositionChange={setCameraPos} 
-          onRotationChange={setCameraRotation} 
+        <CameraController
+          onPositionChange={setCameraPos}
+          onRotationChange={setCameraRotation}
           controlsRef={controlsRef}
           goingHome={goingHome}
           startCinema={startCinema}
+          onNearHome={handleNearHome}
         />
 
         {/* Controls */}
@@ -1359,149 +1343,10 @@ function SummonersRift() {
             gap: mobile ? '10px' : '15px',
             marginBottom: mobile ? '20px' : '35px'
           }}>
-            <a 
-              href="mailto:patrickzhoul123@gmail.com" 
-              title="Email"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: mobile ? '40px' : '50px',
-                height: mobile ? '40px' : '50px',
-                background: 'rgba(200, 170, 110, 0.1)',
-                border: '2px solid #C8AA6E',
-                color: '#C8AA6E',
-                fontSize: mobile ? '18px' : '24px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none',
-                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
-                e.currentTarget.style.borderColor = '#0AC8FF'
-                e.currentTarget.style.color = '#0AC8FF'
-                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
-                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
-                e.currentTarget.style.borderColor = '#C8AA6E'
-                e.currentTarget.style.color = '#C8AA6E'
-                e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-            >
-              <img src={Email} alt="Email" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
-            </a>
-            <a 
-              href="https://github.com/LongpanZhou" 
-              target="_blank" 
-              title="GitHub"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: mobile ? '40px' : '50px',
-                height: mobile ? '40px' : '50px',
-                background: 'rgba(200, 170, 110, 0.1)',
-                border: '2px solid #C8AA6E',
-                color: '#C8AA6E',
-                fontSize: mobile ? '18px' : '24px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none',
-                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
-                e.currentTarget.style.borderColor = '#0AC8FF'
-                e.currentTarget.style.color = '#0AC8FF'
-                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
-                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
-                e.currentTarget.style.borderColor = '#C8AA6E'
-                e.currentTarget.style.color = '#C8AA6E'
-                e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-            >
-              <img src={Github} alt="GitHub" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
-            </a>
-            <a 
-              href="https://leetcode.com/u/longpanzhou/" 
-              target="_blank" 
-              title="LeetCode"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: mobile ? '40px' : '50px',
-                height: mobile ? '40px' : '50px',
-                background: 'rgba(200, 170, 110, 0.1)',
-                border: '2px solid #C8AA6E',
-                color: '#C8AA6E',
-                fontSize: mobile ? '18px' : '24px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none',
-                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
-                e.currentTarget.style.borderColor = '#0AC8FF'
-                e.currentTarget.style.color = '#0AC8FF'
-                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
-                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
-                e.currentTarget.style.borderColor = '#C8AA6E'
-                e.currentTarget.style.color = '#C8AA6E'
-                e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-            >
-              <img src={Leetcode} alt="LeetCode" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
-            </a>
-            <a 
-              href="https://www.linkedin.com/in/longpan-zhou/" 
-              target="_blank" 
-              title="LinkedIn"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: mobile ? '40px' : '50px',
-                height: mobile ? '40px' : '50px',
-                background: 'rgba(200, 170, 110, 0.1)',
-                border: '2px solid #C8AA6E',
-                color: '#C8AA6E',
-                fontSize: mobile ? '18px' : '24px',
-                transition: 'all 0.3s ease',
-                textDecoration: 'none',
-                clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-                boxShadow: '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(10, 200, 255, 0.2)'
-                e.currentTarget.style.borderColor = '#0AC8FF'
-                e.currentTarget.style.color = '#0AC8FF'
-                e.currentTarget.style.transform = 'translateY(-5px) scale(1.1)'
-                e.currentTarget.style.boxShadow = '0 5px 25px rgba(10, 200, 255, 0.5)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(200, 170, 110, 0.1)'
-                e.currentTarget.style.borderColor = '#C8AA6E'
-                e.currentTarget.style.color = '#C8AA6E'
-                e.currentTarget.style.transform = 'translateY(0) scale(1)'
-                e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.2)'
-              }}
-            >
-              <img src={Linkedin} alt="LinkedIn" style={{ width: mobile ? '18px' : '24px', height: mobile ? '18px' : '24px' }} />
-            </a>
+            <SocialLink href="mailto:patrickzhoul123@gmail.com" title="Email" icon={Email} alt="Email" mobile={mobile} />
+            <SocialLink href="https://github.com/LongpanZhou" title="GitHub" icon={Github} alt="GitHub" mobile={mobile} external />
+            <SocialLink href="https://leetcode.com/u/longpanzhou/" title="LeetCode" icon={Leetcode} alt="LeetCode" mobile={mobile} external />
+            <SocialLink href="https://www.linkedin.com/in/longpan-zhou/" title="LinkedIn" icon={Linkedin} alt="LinkedIn" mobile={mobile} external />
           </div>
 
           {/* Divider line */}

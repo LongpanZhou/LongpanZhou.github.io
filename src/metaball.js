@@ -1,8 +1,10 @@
-var canvas = document.createElement("canvas");
-document.body.appendChild(canvas);
+var animationFrameId = null;
 var debounceTimeout;
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+var currentGl = null;
+var currentProgram = null;
+var currentVertexShader = null;
+var currentFragmentShader = null;
+var currentVertexBuffer = null;
 
 const hasHWA = (() => {
   const test = (force=false) => {
@@ -15,19 +17,71 @@ const hasHWA = (() => {
   };
   return test(true) !== test(false);
 })();
-if (!hasHWA) {alert("Your browser does not have hardware acceleration turned on, please turn on hardware acceleration for a better experience.");}
 
-function setCanvasSize() {  
+export function initMetaball(canvas) {
+  if (!hasHWA) {
+    console.warn("Hardware acceleration not detected. Metaball effect may perform poorly.");
+  }
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  // Clean up previous resources
+  cleanup();
+
+  setCanvasSize(canvas);
+
+  function rerender() {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      cleanup();
+      setCanvasSize(canvas);
+    }, 200);
+  }
+
+  window._metaballRerender = rerender;
+  window.addEventListener('resize', rerender);
+}
+
+function cleanup() {
+  if (animationFrameId != null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  if (currentGl && currentProgram) {
+    if (currentVertexShader) currentGl.deleteShader(currentVertexShader);
+    if (currentFragmentShader) currentGl.deleteShader(currentFragmentShader);
+    if (currentVertexBuffer) currentGl.deleteBuffer(currentVertexBuffer);
+    currentGl.deleteProgram(currentProgram);
+  }
+  currentGl = null;
+  currentProgram = null;
+  currentVertexShader = null;
+  currentFragmentShader = null;
+  currentVertexBuffer = null;
+}
+
+export function destroyMetaball() {
+  cleanup();
+  clearTimeout(debounceTimeout);
+  if (window._metaballRerender) {
+    window.removeEventListener('resize', window._metaballRerender);
+    delete window._metaballRerender;
+  }
+}
+
+function setCanvasSize(canvas) {
   var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
   gl.viewport(0, 0, canvas.width, canvas.height);
-  var mouse = {x: 0, y: 0};
 
-  var numMetaballs = 15 + parseInt((canvas.width + canvas.width)/128);
+  var numMetaballs = 15 + parseInt((canvas.width + canvas.height)/128);
   var metaballs = [];
-  
+
   var minRadius = (canvas.width + canvas.height) / 96;
   var maxRadius = (canvas.width + canvas.height) / 48;
-  
+
   for (var i = 0; i < numMetaballs; i++) {
     var radius = Math.random() * (maxRadius - minRadius) + minRadius;
     metaballs.push({
@@ -43,14 +97,12 @@ function setCanvasSize() {
   attribute vec2 position;
 
   void main() {
-  // position specifies only x and y.
-  // We set z to be 0.0, and w to be 1.0
   gl_Position = vec4(position, 0.0, 1.0);
   }
   `;
 
   var fragmentShaderSrc = `
-  precision highp float;
+  precision mediump float;
 
   const float WIDTH = ` + (canvas.width >> 0) + `.0;
   const float HEIGHT = ` + (canvas.height >> 0) + `.0;
@@ -81,8 +133,8 @@ function setCanvasSize() {
 
   `;
 
-  var vertexShader = compileShader(vertexShaderSrc, gl.VERTEX_SHADER);
-  var fragmentShader = compileShader(fragmentShaderSrc, gl.FRAGMENT_SHADER);
+  var vertexShader = compileShader(gl, vertexShaderSrc, gl.VERTEX_SHADER);
+  var fragmentShader = compileShader(gl, fragmentShaderSrc, gl.FRAGMENT_SHADER);
 
   var program = gl.createProgram();
   gl.attachShader(program, vertexShader);
@@ -91,26 +143,30 @@ function setCanvasSize() {
   gl.useProgram(program);
 
   var vertexData = new Float32Array([
-    -1.0,  1.0, // top left
-    -1.0, -1.0, // bottom left
-    1.0,  1.0, // top right
-    1.0, -1.0, // bottom right
+    -1.0,  1.0,
+    -1.0, -1.0,
+    1.0,  1.0,
+    1.0, -1.0,
   ]);
   var vertexDataBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexDataBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
-  var positionHandle = getAttribLocation(program, 'position');
+  var positionHandle = getAttribLocation(gl, program, 'position');
   gl.enableVertexAttribArray(positionHandle);
-  gl.vertexAttribPointer(positionHandle,
-                        2, // position is a vec2
-                        gl.FLOAT, // each component is a float
-                        gl.FALSE, // don't normalize values
-                        2 * 4, // two 4 byte float components per vertex
-                        0 // offset into each span of vertex data
-                        );
+  gl.vertexAttribPointer(positionHandle, 2, gl.FLOAT, gl.FALSE, 2 * 4, 0);
 
-  var metaballsHandle = getUniformLocation(program, 'metaballs');
+  var metaballsHandle = getUniformLocation(gl, program, 'metaballs');
+
+  // Store references for cleanup
+  currentGl = gl;
+  currentProgram = program;
+  currentVertexShader = vertexShader;
+  currentFragmentShader = fragmentShader;
+  currentVertexBuffer = vertexDataBuffer;
+
+  // Pre-allocate the GPU data array once
+  var dataToSendToGPU = new Float32Array(3 * numMetaballs);
 
   loop();
   function loop() {
@@ -123,7 +179,6 @@ function setCanvasSize() {
       if (metaball.y < metaball.r || metaball.y > canvas.height - metaball.r) metaball.vy *= -1;
     }
 
-    var dataToSendToGPU = new Float32Array(3 * numMetaballs);
     for (var i = 0; i < numMetaballs; i++) {
       var baseIndex = 3 * i;
       var mb = metaballs[i];
@@ -132,14 +187,13 @@ function setCanvasSize() {
       dataToSendToGPU[baseIndex + 2] = mb.r;
     }
     gl.uniform3fv(metaballsHandle, dataToSendToGPU);
-    
-    //Draw
+
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-    requestAnimationFrame(loop);
+    animationFrameId = requestAnimationFrame(loop);
   }
 
-  function compileShader(shaderSource, shaderType) {
+  function compileShader(gl, shaderSource, shaderType) {
     var shader = gl.createShader(shaderType);
     gl.shaderSource(shader, shaderSource);
     gl.compileShader(shader);
@@ -151,7 +205,7 @@ function setCanvasSize() {
     return shader;
   }
 
-  function getUniformLocation(program, name) {
+  function getUniformLocation(gl, program, name) {
     var uniformLocation = gl.getUniformLocation(program, name);
     if (uniformLocation === -1) {
       throw 'Can not find uniform ' + name + '.';
@@ -159,28 +213,11 @@ function setCanvasSize() {
     return uniformLocation;
   }
 
-  function getAttribLocation(program, name) {
+  function getAttribLocation(gl, program, name) {
     var attributeLocation = gl.getAttribLocation(program, name);
     if (attributeLocation === -1) {
       throw 'Can not find attribute ' + name + '.';
     }
     return attributeLocation;
   }
-
-  canvas.onmousemove = function(e) {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-  }
 }
-
-function rerender() {
-  clearTimeout(debounceTimeout);
-  debounceTimeout = setTimeout(() => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    setCanvasSize();
-  }, 200);
-}
-
-setCanvasSize();
-window.addEventListener('resize', rerender);

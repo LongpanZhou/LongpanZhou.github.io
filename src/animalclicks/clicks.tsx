@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-//@ts-ignore
+import { useEffect, useRef, useState } from 'react';
 import AnimalClicks from './index.js';
 import './clicks.css';
 
@@ -22,11 +21,11 @@ function Clicks() {
     hideCursor: true,
   });
 
-  // @ts-ignore
-  let animalClicksInstance: AnimalClicks = null;
+  const instanceRef = useRef<any>(null);
 
   useEffect(() => {
-    animalClicksInstance = new AnimalClicks(
+    // @ts-ignore
+    instanceRef.current = new AnimalClicks(
       innerText,
       time,
       quality,
@@ -38,6 +37,13 @@ function Clicks() {
       dy,
       effects
     );
+
+    return () => {
+      if (instanceRef.current) {
+        instanceRef.current.shutdown();
+        instanceRef.current = null;
+      }
+    };
   }, [innerText, time, quality, angle, velocityX, velocityY, gravity, dx, dy, effects]);
 
   const handleInnerTextChange = (e: React.ChangeEvent<HTMLInputElement>) => setInnerText(e.target.value.split(','));
@@ -49,7 +55,7 @@ function Clicks() {
   const handleGravityChange = (e: React.ChangeEvent<HTMLInputElement>) => setGravity(Number(e.target.value));
   const handleDxChange = (e: React.ChangeEvent<HTMLInputElement>) => setDx(Number(e.target.value));
   const handleDyChange = (e: React.ChangeEvent<HTMLInputElement>) => setDy(Number(e.target.value));
-  
+
   const handleEffectsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     setEffects((prevEffects) => ({
@@ -188,7 +194,7 @@ function Clicks() {
         </div>
       </div>
     </>
-  );  
+  );
 }
 
 export default Clicks;
