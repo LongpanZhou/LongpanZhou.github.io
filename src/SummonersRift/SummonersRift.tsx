@@ -1,6 +1,6 @@
 import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Grid, useGLTF } from '@react-three/drei'
+import { OrbitControls, Sky, Grid, useGLTF, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import './SummonersRift.css'
 import Email from '../profile/icons/gmail.svg'
@@ -885,11 +885,6 @@ function SummonersRift() {
     setIsReady(true)
   }, [])
   
-  // Handle going home
-  const handleGoHome = useCallback(() => {
-    setGoingHome(true)
-  }, [])
-  
   // Handle start exploring
   const handleStartExploring = useCallback(() => {
     setGoingHome(false)
@@ -975,10 +970,10 @@ function SummonersRift() {
         }
       `}</style>
       
-      {/* Fixed Camera Info - Top Left */}
+      {/* Fixed Camera Info - Top Left (below nav bar) */}
       <div style={{
         position: 'fixed',
-        top: '20px',
+        top: '76px',
         left: '20px',
         zIndex: 1000,
         background: 'rgba(0, 0, 0, 0.7)',
@@ -994,71 +989,7 @@ function SummonersRift() {
         <div>Yaw: {cameraRotation.yaw.toFixed(1)}° | Pitch: {cameraRotation.pitch.toFixed(1)}°</div>
       </div>
 
-      {/* Back to Home Button - Top Right on desktop, Bottom Left on mobile */}
-      {!goingHome && (
-        <div style={{
-          position: 'fixed',
-          top: mobile ? 'auto' : '20px',
-          right: mobile ? 'auto' : '20px',
-          bottom: mobile ? '20px' : 'auto',
-          left: mobile ? '20px' : 'auto',
-          zIndex: 1000
-        }}>
-          <button
-            onClick={handleGoHome}
-            style={{
-              background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.9) 100%)',
-              border: '2px solid #C8AA6E',
-              color: '#C8AA6E',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              textTransform: 'uppercase',
-              letterSpacing: '2px',
-              padding: '12px 24px',
-              cursor: 'pointer',
-              fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
-              clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
-              boxShadow: '0 0 15px rgba(200, 170, 110, 0.4), inset 0 0 20px rgba(200, 170, 110, 0.1)',
-              transition: 'all 0.3s ease',
-              position: 'relative',
-              backdropFilter: 'blur(5px)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.border = '2px solid #0AC8FF'
-              e.currentTarget.style.color = '#0AC8FF'
-              e.currentTarget.style.boxShadow = '0 0 25px rgba(10, 200, 255, 0.6), inset 0 0 30px rgba(10, 200, 255, 0.2)'
-              e.currentTarget.style.transform = 'translateY(-2px)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.border = '2px solid #C8AA6E'
-              e.currentTarget.style.color = '#C8AA6E'
-              e.currentTarget.style.boxShadow = '0 0 15px rgba(200, 170, 110, 0.4), inset 0 0 20px rgba(200, 170, 110, 0.1)'
-              e.currentTarget.style.transform = 'translateY(0)'
-            }}
-          >
-            {/* Corner accents */}
-            <span style={{
-              position: 'absolute',
-              top: '3px',
-              right: '3px',
-              width: '8px',
-              height: '8px',
-              borderTop: '1px solid #C8AA6E',
-              borderRight: '1px solid #C8AA6E'
-            }} />
-            <span style={{
-              position: 'absolute',
-              bottom: '3px',
-              left: '3px',
-              width: '8px',
-              height: '8px',
-              borderBottom: '1px solid #C8AA6E',
-              borderLeft: '1px solid #C8AA6E'
-            }} />
-            {mobile ? 'Home' : '← Back to Home'}
-          </button>
-        </div>
-      )}
+      {/* Back to Home button removed - nav bar replaces it */}
 
       {/* Three.js Canvas */}
       <Canvas
@@ -1140,13 +1071,8 @@ function SummonersRift() {
         />
       </Canvas>
 
-      {/* Loading Overlay */}
-      {!isReady && (
-        <div className="loading-overlay">
-          <div className="loading-spinner"></div>
-          <p className="loading-text">Loading Summoner's Rift</p>
-        </div>
-      )}
+      {/* Loading Overlay with Progress */}
+      {!isReady && <LoadingScreen />}
 
       {/* Center Content - Only show button when secret is false, show full panel when secret is true */}
       {goingHome && showCenterPanel && !secret && (
@@ -1411,6 +1337,24 @@ function SummonersRift() {
 
   {/* Music Player - hidden on mobile */}
   {!mobile && secret && <MusicPlayer onUserInteraction={userInteracted} />}
+    </div>
+  )
+}
+
+// Enhanced loading screen with progress
+function LoadingScreen() {
+  const { progress } = useProgress()
+
+  return (
+    <div className="loading-overlay">
+      <div className="loading-hexagon">
+        <div className="loading-hexagon__inner" />
+      </div>
+      <p className="loading-text">Loading Summoner's Rift</p>
+      <div className="progress-bar">
+        <div className="progress-fill" style={{ width: `${progress}%` }} />
+      </div>
+      <div className="progress-text">{Math.round(progress)}%</div>
     </div>
   )
 }

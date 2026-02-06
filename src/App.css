@@ -1,6 +1,17 @@
+@import './theme/hextech.css';
+
 body {
     font-family: 'Alatsi', sans-serif;
     margin: 0;
-    background: white;
+    background: #0A1428;
     overflow-x: hidden;
+    color: #F0E6D2;
+}
+
+canvas {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
 }

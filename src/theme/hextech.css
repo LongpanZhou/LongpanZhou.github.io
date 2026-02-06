@@ -1,0 +1,37 @@
+/* Hextech Theme - CSS Custom Properties */
+:root {
+  --hex-dark-blue: #0A1428;
+  --hex-gold: #C8AA6E;
+  --hex-cyan: #0AC8FF;
+  --hex-cream: #F0E6D2;
+  --hex-dark-gold: #A0885A;
+  --hex-dark-bg: #010a13;
+  --hex-text-muted: #a09b8c;
+
+  --hex-font-heading: "Beaufort for LOL", "Times New Roman", serif;
+  --hex-font-body: "Alatsi", sans-serif;
+
+  --hex-gradient-gold: linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%);
+  --hex-gradient-dark: linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(10, 20, 40, 0.9) 100%);
+
+  --hex-clip-button: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  --hex-clip-card: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--hex-dark-blue);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hex-dark-gold);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hex-gold);
+}

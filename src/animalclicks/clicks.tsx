@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AnimalClicks from './index.js';
+import PageShell from '../components/PageShell';
 import './clicks.css';
-
-import 'bootstrap/dist/css/bootstrap.min.css';
 
 function Clicks() {
   const [innerText, setInnerText] = useState(['🦝','😺','🐶']);
@@ -65,135 +64,80 @@ function Clicks() {
   };
 
   return (
-    <>
-      <div className="container card mx-auto settings-table">
-        <div className="card-body">
-          <div className="row g-3">
-            <div className="col-md-4">
-              <label className="form-label">
-                Inner Text (comma-separated):
-                <input
-                  type="text"
-                  className="form-control"
-                  value={innerText.join(',')}
-                  onChange={handleInnerTextChange}
-                />
-              </label>
+    <PageShell>
+      <div className="clicks-page">
+        <h1 className="clicks-page__title">AnimalClicks</h1>
+        <p className="clicks-page__subtitle">
+          Interactive demo of the{' '}
+          <a href="https://www.npmjs.com/package/animalclicks" target="_blank" rel="noopener noreferrer">
+            animalclicks
+          </a>{' '}
+          NPM package — click anywhere on the page to see emoji animals drop with physics!
+        </p>
+
+        <div className="clicks-panel">
+          <div className="clicks-grid">
+            <div className="clicks-field">
+              <label>Inner Text (comma-separated)</label>
+              <input type="text" value={innerText.join(',')} onChange={handleInnerTextChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                Time (ms):
-                <input
-                  type="number"
-                  className="form-control"
-                  value={time}
-                  onChange={handleTimeChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>Time (ms)</label>
+              <input type="number" value={time} onChange={handleTimeChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                Quality:
-                <input
-                  type="number"
-                  className="form-control"
-                  value={quality}
-                  onChange={handleQualityChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>Quality</label>
+              <input type="number" value={quality} onChange={handleQualityChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                Angle (degrees):
-                <input
-                  type="number"
-                  className="form-control"
-                  value={angle}
-                  onChange={handleAngleChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>Angle (degrees)</label>
+              <input type="number" value={angle} onChange={handleAngleChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                Velocity X:
-                <input
-                  type="number"
-                  className="form-control"
-                  value={velocityX}
-                  onChange={handleVelocityXChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>Velocity X</label>
+              <input type="number" value={velocityX} onChange={handleVelocityXChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                Velocity Y:
-                <input
-                  type="number"
-                  className="form-control"
-                  value={velocityY}
-                  onChange={handleVelocityYChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>Velocity Y</label>
+              <input type="number" value={velocityY} onChange={handleVelocityYChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                Gravity:
-                <input
-                  type="number"
-                  className="form-control"
-                  value={gravity}
-                  onChange={handleGravityChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>Gravity</label>
+              <input type="number" value={gravity} onChange={handleGravityChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                DX:
-                <input
-                  type="number"
-                  className="form-control"
-                  value={dx}
-                  onChange={handleDxChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>DX</label>
+              <input type="number" value={dx} onChange={handleDxChange} />
             </div>
-            <div className="col-md-4">
-              <label className="form-label">
-                DY:
-                <input
-                  type="number"
-                  className="form-control"
-                  value={dy}
-                  onChange={handleDyChange}
-                />
-              </label>
+            <div className="clicks-field">
+              <label>DY</label>
+              <input type="number" value={dy} onChange={handleDyChange} />
             </div>
-            <div className="col-12">
-              <h5>Effects:</h5>
-              <div className="d-flex flex-wrap justify-content-center gap-3">
-                {Object.entries(effects).map(([name, checked], index) => (
-                  <div className="form-check" key={index}>
-                    <input
-                      type="checkbox"
-                      name={name}
-                      className="form-check-input"
-                      checked={checked}
-                      onChange={handleEffectsChange}
-                    />
-                    <label className="form-check-label">
-                      {name.charAt(0).toUpperCase() + name.slice(1)}
-                    </label>
-                  </div>
-                ))}
-              </div>
+          </div>
+
+          <div className="clicks-effects">
+            <h3 className="clicks-effects__title">Effects</h3>
+            <div className="clicks-effects__list">
+              {Object.entries(effects).map(([name, checked], index) => (
+                <label className="clicks-checkbox" key={index}>
+                  <input
+                    type="checkbox"
+                    name={name}
+                    checked={checked}
+                    onChange={handleEffectsChange}
+                  />
+                  <span>{name.charAt(0).toUpperCase() + name.slice(1)}</span>
+                </label>
+              ))}
             </div>
-            <p className="alert alert-info text-center col-12">
-              Click anywhere to see animals drop!
-            </p>
+          </div>
+
+          <div className="clicks-hint">
+            Click anywhere to see animals drop!
           </div>
         </div>
       </div>
-    </>
+    </PageShell>
   );
 }
 

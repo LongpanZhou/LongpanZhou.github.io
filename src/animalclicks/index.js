@@ -181,25 +181,26 @@ class AnimalClicks {
         let VelX = (Math.random() < 0.5 ? -1 : 1) * Math.random() * this.velocityX;
         let VelY = -Math.random() * this.velocityY;
 
-        const maxY = window.innerHeight;
         const maxX = window.innerWidth;
-    
+
         const fall = () => {
             VelY += this.gravity;
-    
+
             const currentTop = parseFloat(textElement.style.top);
             const currentLeft = parseFloat(textElement.style.left);
-    
+
             textElement.style.top = `${currentTop + VelY}px`;
             textElement.style.left = `${currentLeft + VelX}px`;
-    
+
+            const maxY = window.scrollY + window.innerHeight;
+
             if (currentTop + VelY < maxY - 50 && currentLeft + VelX < maxX && currentLeft + VelX > 0) {
                 requestAnimationFrame(fall);
             } else {
                 textElement.remove();
             }
         };
-    
+
         requestAnimationFrame(fall);
     }
 

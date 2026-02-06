@@ -1,0 +1,166 @@
+.hex-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(200, 170, 110, 0.3);
+  transition: background 0.3s ease;
+  font-family: "Beaufort for LOL", "Times New Roman", serif;
+}
+
+.hex-nav--solid {
+  background: rgba(1, 10, 19, 0.98);
+}
+
+.hex-nav--transparent {
+  background: rgba(1, 10, 19, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.hex-nav__brand {
+  color: #C8AA6E;
+  font-size: 18px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-decoration: none;
+  text-shadow: 0 0 8px rgba(200, 170, 110, 0.4);
+}
+
+.hex-nav__brand:hover {
+  color: #F0E6D2;
+}
+
+.hex-nav__links {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hex-nav__link {
+  color: #a09b8c;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 6px 14px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.hex-nav__link:hover {
+  color: #F0E6D2;
+}
+
+.hex-nav__link--active {
+  color: #0AC8FF;
+  border-bottom-color: #0AC8FF;
+  text-shadow: 0 0 8px rgba(10, 200, 255, 0.4);
+}
+
+/* Resume link styled differently */
+.hex-nav__link--resume {
+  color: #C8AA6E;
+  border: 1px solid rgba(200, 170, 110, 0.4);
+  border-radius: 3px;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+.hex-nav__link--resume:hover {
+  border-color: #C8AA6E;
+  background: rgba(200, 170, 110, 0.1);
+  color: #F0E6D2;
+}
+
+/* Hamburger */
+.hex-nav__hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  z-index: 2002;
+}
+
+.hex-nav__hamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: #C8AA6E;
+  margin: 5px 0;
+  transition: all 0.3s ease;
+}
+
+.hex-nav__hamburger--open span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hex-nav__hamburger--open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hex-nav__hamburger--open span:nth-child(3) {
+  transform: rotate(-45deg) translate(5px, -5px);
+}
+
+/* Mobile overlay */
+.hex-nav__overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(1, 10, 19, 0.97);
+  z-index: 2001;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.hex-nav__overlay--open {
+  display: flex;
+}
+
+.hex-nav__overlay a {
+  color: #F0E6D2;
+  text-decoration: none;
+  font-size: 20px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  padding: 12px 32px;
+  font-family: "Beaufort for LOL", "Times New Roman", serif;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.hex-nav__overlay a:hover,
+.hex-nav__overlay a.hex-nav__link--active {
+  color: #0AC8FF;
+  border-color: rgba(10, 200, 255, 0.3);
+  text-shadow: 0 0 12px rgba(10, 200, 255, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hex-nav__links {
+    display: none;
+  }
+
+  .hex-nav__hamburger {
+    display: block;
+  }
+}
