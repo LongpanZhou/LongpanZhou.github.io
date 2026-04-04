@@ -1,6 +1,6 @@
 import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Sky, Grid, useGLTF, useProgress } from '@react-three/drei'
+import { OrbitControls, Grid, useGLTF, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import './SummonersRift.css'
 import Email from '../profile/icons/gmail.svg'
@@ -618,30 +618,6 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   })
 
   return null
-}
-
-// Directional light that targets the map center instead of [0,0,0]
-function CenteredDirectionalLight({ intensity }: { intensity: number }) {
-  const lightRef = useRef<THREE.DirectionalLight>(null)
-  const targetRef = useRef<THREE.Object3D>(null)
-
-  useEffect(() => {
-    if (lightRef.current && targetRef.current) {
-      lightRef.current.target = targetRef.current
-    }
-  }, [])
-
-  return (
-    <>
-      <directionalLight
-        ref={lightRef}
-        position={[-67.85, 250, 60]}
-        intensity={intensity}
-        castShadow={false}
-      />
-      <object3D ref={targetRef} position={[-67.85, 0, 60]} />
-    </>
-  )
 }
 
 function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void; isMobileDevice: boolean }) {
