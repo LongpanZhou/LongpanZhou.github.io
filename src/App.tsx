@@ -13,6 +13,7 @@ const Clicks = lazy(() => import('./animalclicks/clicks'));
 const Projects = lazy(() => import('./projects/Projects'));
 const Blog = lazy(() => import('./blog/Blog'));
 const BlogPost = lazy(() => import('./blog/BlogPost'));
+const PdfViewer = lazy(() => import('./pdf/PdfViewer'));
 
 function AppLayout() {
   const location = useLocation();
@@ -45,6 +46,9 @@ function AppLayout() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
+          {/* Any other path is treated as a PDF URL to proxy-render,
+              e.g. /arxiv.org/pdf/1706.03762 */}
+          <Route path="*" element={<PdfViewer />} />
         </Routes>
       </Suspense>
     </>

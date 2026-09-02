@@ -10,6 +10,7 @@ const navItems = [
   { to: '/', label: 'Home' },
   { to: '/projects', label: 'Projects' },
   { to: '/blog', label: 'Blog' },
+  { to: '/arxiv.org/pdf/1706.03762', label: 'arXiv' },
 ];
 
 function Nav({ transparent = false }: NavProps) {

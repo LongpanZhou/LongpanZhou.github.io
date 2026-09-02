@@ -9,6 +9,28 @@ A 3D interactive portfolio website featuring Summoner's Rift from League of Lege
 - 🎨 League of Legends themed UI with Hextech styling
 - 🎬 Cinematic camera controls and auto-exploration mode
 - 🖱️ Custom cursor and interactive controls
+- 📄 In-browser PDF viewer with one-click translation — append any PDF URL to
+  the site (e.g. `longpanzhou.github.io/arxiv.org/pdf/1706.03762`) to render it
+  and translate it to any language
+
+## PDF viewer & translator
+
+Any unrecognized path is treated as a PDF URL:
+
+```
+https://longpanzhou.github.io/arxiv.org/pdf/1706.03762
+https://longpanzhou.github.io/https://example.com/paper.pdf
+```
+
+GitHub Pages' `404.html` SPA redirect hands the path to the React app, which
+loads the file with [`pdfjs-dist`](https://github.com/mozilla/pdf.js) and
+renders every page to a canvas. The toolbar's **Translate** button extracts the
+text layer per page and translates it via public Google Translate JSON
+endpoints (with a MyMemory fallback) — no API key, entirely client-side. Pick a
+language from the list or type any Google Translate language code.
+
+Requirements: the PDF host must send permissive CORS headers
+(`Access-Control-Allow-Origin`). arXiv does.
 
 ## Quick Start
 

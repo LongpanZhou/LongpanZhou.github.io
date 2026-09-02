@@ -1,0 +1,224 @@
+.pdfv {
+  min-height: 100vh;
+  background: #0A1428;
+  color: #F0E6D2;
+  padding-top: 76px;
+}
+
+.pdfv__toolbar {
+  position: sticky;
+  top: 76px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 20px;
+  background: rgba(10, 20, 40, 0.94);
+  border-bottom: 1px solid #3C3C41;
+  backdrop-filter: blur(6px);
+}
+
+.pdfv__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdfv__addr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  flex: 1 1 360px;
+  min-width: 260px;
+}
+
+.pdfv__addr-input {
+  flex: 1 1 auto;
+  min-width: 120px;
+  background: #1E2328;
+  color: #F0E6D2;
+  border: 1px solid #785A28;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.pdfv__btn--active {
+  background: #C8AA6E;
+  color: #0A1428;
+  border-color: #C8AA6E;
+  font-weight: 700;
+}
+
+.pdfv__modes .pdfv__btn {
+  padding: 6px 10px;
+}
+
+.pdfv__note {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 8px 14px;
+  color: #A09B8C;
+  font-size: 12px;
+  text-align: center;
+}
+
+.pdfv__btn {
+  background: #1E2328;
+  color: #F0E6D2;
+  border: 1px solid #785A28;
+  border-radius: 3px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pdfv__btn:hover:not(:disabled) {
+  background: #2A2F35;
+  border-color: #C8AA6E;
+}
+
+.pdfv__btn--primary {
+  background: #C8AA6E;
+  color: #0A1428;
+  border-color: #C8AA6E;
+  font-weight: 700;
+}
+
+.pdfv__btn--primary:hover:not(:disabled) {
+  background: #F0E6D2;
+}
+
+.pdfv__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pdfv__select,
+.pdfv__input {
+  background: #1E2328;
+  color: #F0E6D2;
+  border: 1px solid #785A28;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.pdfv__input {
+  width: 90px;
+}
+
+.pdfv__label {
+  font-size: 12px;
+  color: #A09B8C;
+}
+
+.pdfv__link {
+  color: #C8AA6E;
+}
+
+.pdfv__pages {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 24px;
+  padding: 24px 16px 60px;
+  overflow-x: auto;
+}
+
+/* Original page and (in Translate view) the in-place page always sit
+   side by side; the strip scrolls horizontally if it's too wide. */
+.pdfv__row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 20px;
+  width: max-content;
+  max-width: none;
+  margin-inline: auto;
+}
+
+.pdfv-page {
+  position: relative;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  flex: 0 0 auto;
+}
+
+/* Override the global `canvas { position: absolute }` rule in App.css. */
+.pdfv-page__canvas {
+  position: relative;
+  display: block;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+}
+
+.pdfv-page__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5B5A56;
+  font-size: 13px;
+}
+
+/* In-place "replace" translation layer, positioned over the canvas. */
+.pdfv-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.pdfv-tblock {
+  position: absolute;
+  background: #fff;
+  color: #000;
+  box-sizing: border-box;
+  line-height: 1.16;
+  text-align: justify;
+  hyphens: auto;
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.pdfv__status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 50vh;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.pdfv__error {
+  color: #E0503B;
+  max-width: 560px;
+}
+
+.pdfv__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #3C3C41;
+  border-top-color: #C8AA6E;
+  border-radius: 50%;
+  animation: pdfv-spin 0.9s linear infinite;
+}
+
+@keyframes pdfv-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 720px) {
+  .pdfv__addr { flex-basis: 100%; }
+  .pdfv__toolbar { top: 64px; }
+  .pdfv { padding-top: 64px; }
+}
