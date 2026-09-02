@@ -1,0 +1,1 @@
+import{j as i}from"./index-C85ljW9E.js";function n({children:t}){return i.jsx("div",{style:{minHeight:"100vh",background:"#0A1428",paddingTop:"76px",paddingBottom:"40px"},children:i.jsx("div",{style:{maxWidth:"1200px",margin:"0 auto",padding:"0 24px"},children:t})})}export{n as P};
