@@ -3,10 +3,10 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import Nav from './components/Nav/Nav';
 import './App.css';
 
-// Eager load the main 3D page
-import SummonersRift from './SummonersRift/SummonersRift';
-
-// Lazy load other pages
+// Lazy load pages. The 3D Rift pulls in Three.js + a 26 MB model; keeping it
+// out of the initial bundle lets the nav render and stay clickable while it
+// downloads and parses.
+const SummonersRift = lazy(() => import('./SummonersRift/SummonersRift'));
 const Welcome = lazy(() => import('./welcome/welcome'));
 const Profile = lazy(() => import('./profile/profile'));
 const Clicks = lazy(() => import('./animalclicks/clicks'));

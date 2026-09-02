@@ -815,6 +815,10 @@ function SocialLink({ href, title, icon, alt, mobile, external = false }: {
 
 function SummonersRift() {
   const [isReady, setIsReady] = useState(false)
+  // Mount the Three.js Canvas only after the first paint, so the nav bar and
+  // loading screen are on screen and interactive before the GLB parse (which
+  // blocks the main thread) begins.
+  const [canvasMounted, setCanvasMounted] = useState(false)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
   const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0 })
   const [goingHome, setGoingHome] = useState(true)
@@ -855,6 +859,19 @@ function SummonersRift() {
       pitch: -90 + Math.random() * 60
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Defer the Canvas past the first paint (double rAF) so the nav is
+  // interactive before Three.js starts blocking the main thread.
+  useEffect(() => {
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setCanvasMounted(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [])
   
   // Handle model ready
   const handleReady = useCallback(() => {
@@ -968,8 +985,9 @@ function SummonersRift() {
       {/* Back to Home button removed - nav bar replaces it */}
 
       {/* Three.js Canvas */}
+      {canvasMounted && (
       <Canvas
-        style={{ 
+        style={{
           width: '100vw', 
           height: '100vh', 
           display: 'block',
@@ -1046,6 +1064,7 @@ function SummonersRift() {
           dampingFactor={0.05}
         />
       </Canvas>
+      )}
 
       {/* Loading Overlay with Progress */}
       {!isReady && <LoadingScreen />}
