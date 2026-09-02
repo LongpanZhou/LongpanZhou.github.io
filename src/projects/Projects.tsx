@@ -1,9 +1,14 @@
 import PageShell from '../components/PageShell';
-import { projects } from '../data/projects';
 import ProjectCard from './ProjectCard';
+import { useProjects } from './useProjects';
 import './projects.css';
 
 function Projects() {
+  const projects = useProjects();
+
+  const totalStars = projects.reduce((sum, p) => sum + p.stars, 0);
+  const languageCount = new Set(projects.map((p) => p.language)).size;
+
   return (
     <PageShell>
       <div className="projects-page">
@@ -27,11 +32,11 @@ function Projects() {
               <span className="github-stats__stat-label">Repositories</span>
             </div>
             <div className="github-stats__stat">
-              <span className="github-stats__stat-value">{projects.reduce((sum, p) => sum + p.stars, 0)}</span>
+              <span className="github-stats__stat-value">{totalStars}</span>
               <span className="github-stats__stat-label">Total Stars</span>
             </div>
             <div className="github-stats__stat">
-              <span className="github-stats__stat-value">{new Set(projects.map(p => p.language)).size}</span>
+              <span className="github-stats__stat-value">{languageCount}</span>
               <span className="github-stats__stat-label">Languages</span>
             </div>
           </div>

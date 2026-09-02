@@ -145,9 +145,19 @@ export const languageColors: Record<string, string> = {
   JavaScript: '#F1E05A',
   'C++': '#F34B7D',
   C: '#555555',
+  'C#': '#178600',
   HTML: '#E34C26',
   CSS: '#563D7C',
   'Jupyter Notebook': '#DA5B0B',
+  Shell: '#89E051',
+  Go: '#00ADD8',
+  Rust: '#DEA584',
+  Java: '#B07219',
+  Lua: '#000080',
+  Batchfile: '#C1F12E',
+  Dockerfile: '#384D54',
+  Makefile: '#427819',
+  Other: '#888888',
 };
 
 export function getAllLanguages(): string[] {
