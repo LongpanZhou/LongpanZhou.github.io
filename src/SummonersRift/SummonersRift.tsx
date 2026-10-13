@@ -1242,21 +1242,6 @@ function SummonersRift() {
             ⬡ Software Developer ⬡
           </div>
 
-          {/* Quote Section */}
-          <div style={{ 
-            fontSize: mobile ? '14px' : '18px', 
-            lineHeight: '1.8',
-            color: '#d4d4d4',
-            marginBottom: mobile ? '20px' : '35px',
-            padding: mobile ? '15px 0' : '20px 0',
-            borderTop: '1px solid rgba(200, 170, 110, 0.3)',
-            borderBottom: '1px solid rgba(200, 170, 110, 0.3)'
-          }}>
-            <p style={{ margin: '0', fontStyle: 'italic', color: '#F0E6D2' }}>
-              "I code, sleep, and repeat."
-            </p>
-          </div>
-
           {/* Social Links - Enhanced LoL Style */}
           <div style={{
             display: 'flex',

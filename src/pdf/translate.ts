@@ -1,220 +1,199 @@
-// Client-side translation with no API key and no backend.
-//
-// It calls public Google Translate JSON endpoints that send
-// `Access-Control-Allow-Origin: *`, so they work straight from the browser,
-// and falls back to MyMemory if Google rate-limits the visitor's IP.
-//
-// Each call is a GET, so text is chunked to keep URLs short. Newlines inside
-// a chunk survive the round-trip, so many lines are translated at once and
-// mapped back paragraph-by-paragraph.
+// Translation through Z.ai's GLM chat API. The browser never holds a key: in
+// local dev, Vite forwards /glm-api to GLM with the key attached (see
+// vite.config.ts). The deployed site needs a server-side proxy at the same path
+// before translation works there.
 
-const MAX_CHUNK_CHARS = 1400;
-const CHUNK_DELAY_MS = 350;
+const GLM_URL = '/glm-api/api/paas/v4/chat/completions';
+const GLM_MODEL = 'glm-4.5-flash';
 
 export interface Language {
   code: string;
   label: string;
 }
 
-// A practical subset — any code Google supports also works through the
-// "custom code" field in the UI.
+// A practical subset — any language the model understands also works through
+// the "custom code" field in the UI. Kept in alphabetical order by name.
 export const LANGUAGES: Language[] = [
-  { code: 'en', label: 'English' },
+  { code: 'ar', label: 'Arabic' },
+  { code: 'bn', label: 'Bengali' },
   { code: 'zh-CN', label: 'Chinese (Simplified)' },
   { code: 'zh-TW', label: 'Chinese (Traditional)' },
-  { code: 'es', label: 'Spanish' },
+  { code: 'nl', label: 'Dutch' },
+  { code: 'en', label: 'English' },
   { code: 'fr', label: 'French' },
   { code: 'de', label: 'German' },
-  { code: 'ja', label: 'Japanese' },
-  { code: 'ko', label: 'Korean' },
-  { code: 'ru', label: 'Russian' },
-  { code: 'pt', label: 'Portuguese' },
-  { code: 'it', label: 'Italian' },
-  { code: 'nl', label: 'Dutch' },
-  { code: 'ar', label: 'Arabic' },
-  { code: 'hi', label: 'Hindi' },
-  { code: 'bn', label: 'Bengali' },
-  { code: 'tr', label: 'Turkish' },
-  { code: 'vi', label: 'Vietnamese' },
-  { code: 'th', label: 'Thai' },
-  { code: 'id', label: 'Indonesian' },
-  { code: 'pl', label: 'Polish' },
-  { code: 'uk', label: 'Ukrainian' },
-  { code: 'sv', label: 'Swedish' },
   { code: 'el', label: 'Greek' },
   { code: 'he', label: 'Hebrew' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'id', label: 'Indonesian' },
+  { code: 'it', label: 'Italian' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
   { code: 'fa', label: 'Persian' },
+  { code: 'pl', label: 'Polish' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'sv', label: 'Swedish' },
+  { code: 'th', label: 'Thai' },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'uk', label: 'Ukrainian' },
+  { code: 'vi', label: 'Vietnamese' },
 ];
+
+// A page sent in one request can take longer than ATTEMPT_TIMEOUT_MS, so it is
+// split into batches of about this many characters.
+const BATCH_CHARS = 1_500;
+
+// Batches of one page run in parallel, since most of the wait is GLM generating
+// text. GLM rate-limits around 4 to 8 parallel requests, so stay at 3.
+const BATCH_CONCURRENCY = 3;
+
+function languageName(code: string): string {
+  return LANGUAGES.find((l) => l.code === code)?.label ?? code;
+}
+
+type ChatReply = {
+  choices?: { message?: { content?: string } }[];
+  error?: { message?: string };
+};
+
+const MAX_ATTEMPTS = 4;
+const ATTEMPT_TIMEOUT_MS = 45_000;
+// Waits 10 s, 20 s, then 40 s: GLM's per-minute rate limit clears within about a minute.
+const RETRY_BASE_MS = 10_000;
+const RETRYABLE_STATUS = new Set([429, 503]);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Split text into chunks under MAX_CHUNK_CHARS, breaking on line boundaries. */
-function splitChunks(text: string): string[] {
-  const lines = text.split('\n');
-  const chunks: string[] = [];
-  let current = '';
-
-  const flushLongLine = (line: string) => {
-    let rest = line;
-    while (rest.length > MAX_CHUNK_CHARS) {
-      let cut = rest.lastIndexOf(' ', MAX_CHUNK_CHARS);
-      if (cut <= 0) cut = MAX_CHUNK_CHARS;
-      chunks.push(rest.slice(0, cut));
-      rest = rest.slice(cut).trimStart();
-    }
-    current = rest;
-  };
-
-  for (const line of lines) {
-    if (line.length > MAX_CHUNK_CHARS) {
-      if (current) {
-        chunks.push(current);
-        current = '';
-      }
-      flushLongLine(line);
-      continue;
-    }
-    if ((current + '\n' + line).length > MAX_CHUNK_CHARS) {
-      if (current) chunks.push(current);
-      current = line;
-    } else {
-      current = current ? current + '\n' + line : line;
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
-
-// Google "single" response: data[0] is an array of [translated, original, ...].
-function parseGoogleSingle(data: unknown): string {
-  const segments = Array.isArray(data) ? data[0] : null;
-  if (!Array.isArray(segments)) throw new Error('bad shape');
-  return segments
-    .map((seg) => (Array.isArray(seg) && typeof seg[0] === 'string' ? seg[0] : ''))
-    .join('');
-}
-
-// Google "dict-chrome-ex" response: [["full translated text", "detectedLang"]].
-function parseGoogleDict(data: unknown): string {
-  if (Array.isArray(data) && Array.isArray(data[0]) && typeof data[0][0] === 'string') {
-    return data[0][0];
-  }
-  throw new Error('bad shape');
-}
-
-interface Provider {
-  name: string;
-  url: (q: string, sl: string, tl: string) => string;
-  parse: (data: unknown) => string;
-}
-
-const GOOGLE_PROVIDERS: Provider[] = [
-  {
-    name: 'googleapis',
-    url: (q, sl, tl) =>
-      `https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=${sl}&tl=${tl}&q=${encodeURIComponent(q)}`,
-    parse: parseGoogleSingle,
-  },
-  {
-    name: 'clients5-single',
-    url: (q, sl, tl) =>
-      `https://clients5.google.com/translate_a/single?client=gtx&dt=t&sl=${sl}&tl=${tl}&q=${encodeURIComponent(q)}`,
-    parse: parseGoogleSingle,
-  },
-  {
-    name: 'clients5-dict',
-    url: (q, sl, tl) =>
-      `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${sl}&tl=${tl}&q=${encodeURIComponent(q)}`,
-    parse: parseGoogleDict,
-  },
-];
-
-async function fetchJson(url: string, signal?: AbortSignal): Promise<unknown> {
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = await res.text();
-  // Rate-limit / bot pages come back as HTML, not JSON.
-  if (/^\s*</.test(body)) throw new Error('blocked (non-JSON response)');
-  return JSON.parse(body);
-}
-
-async function translateViaMyMemory(
-  chunk: string,
-  sourceLang: string,
-  targetLang: string,
+// GLM returns 429 ("Rate limit reached for requests") and 503 under load, and the
+// browser reports a request that gets no response as "Load failed" or "Failed to
+// fetch". Retry those with backoff and time out each attempt. Never retry after a
+// user abort.
+async function postWithRetry(
+  url: string,
+  init: RequestInit,
   signal?: AbortSignal,
-): Promise<string> {
-  // MyMemory caps a request at ~500 words, so split further on lines.
-  const lines = chunk.split('\n');
-  const out: string[] = [];
-  const pair = `${sourceLang === 'auto' ? 'en' : sourceLang}|${targetLang}`;
-  for (const line of lines) {
-    if (!line.trim()) {
-      out.push('');
-      continue;
-    }
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(line)}&langpair=${encodeURIComponent(pair)}`;
-    const data = (await fetchJson(url, signal)) as {
-      responseData?: { translatedText?: string };
-    };
-    out.push(data.responseData?.translatedText ?? line);
-  }
-  return out.join('\n');
-}
+): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    if (attempt > 1) await sleep(RETRY_BASE_MS * 2 ** (attempt - 2));
+    signal?.throwIfAborted();
 
-async function translateChunk(
-  chunk: string,
-  targetLang: string,
-  sourceLang: string,
-  signal?: AbortSignal,
-): Promise<string> {
-  let lastErr: unknown;
-  for (const provider of GOOGLE_PROVIDERS) {
+    const attemptCtl = new AbortController();
+    const timer = setTimeout(() => attemptCtl.abort(), ATTEMPT_TIMEOUT_MS);
+    const onUserAbort = () => attemptCtl.abort();
+    signal?.addEventListener('abort', onUserAbort);
     try {
-      const data = await fetchJson(provider.url(chunk, sourceLang, targetLang), signal);
-      return provider.parse(data);
+      const res = await fetch(url, { ...init, signal: attemptCtl.signal });
+      if (!RETRYABLE_STATUS.has(res.status) || attempt === MAX_ATTEMPTS) return res;
     } catch (err) {
       if (signal?.aborted) throw err;
-      lastErr = err;
+      if (attempt === MAX_ATTEMPTS) {
+        throw new Error(
+          `GLM did not respond after ${MAX_ATTEMPTS} attempts. Check your connection and try again.`,
+        );
+      }
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onUserAbort);
     }
   }
-  try {
-    return await translateViaMyMemory(chunk, sourceLang, targetLang, signal);
-  } catch (err) {
-    if (signal?.aborted) throw err;
-    lastErr = err;
-  }
-  throw new Error(
-    `All translation providers failed (${lastErr instanceof Error ? lastErr.message : 'unknown'})`,
-  );
 }
 
-/**
- * Translate a block of text. `targetLang` is any Google Translate language
- * code; `sourceLang` defaults to auto-detect.
- */
-export async function translateText(
-  text: string,
+// One request: a list of segments in, the same number of translations out.
+async function translateBatch(
+  texts: string[],
   targetLang: string,
-  sourceLang = 'auto',
+  sourceLang: string,
   signal?: AbortSignal,
-): Promise<string> {
-  if (!text.trim()) return '';
-  const chunks = splitChunks(text);
-  const results: string[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (i > 0) await sleep(CHUNK_DELAY_MS);
-    results.push(await translateChunk(chunks[i], targetLang, sourceLang, signal));
+): Promise<string[]> {
+  const source =
+    sourceLang === 'auto'
+      ? 'Detect the source language.'
+      : `The source language is ${languageName(sourceLang)}.`;
+
+  const res = await postWithRetry(
+    GLM_URL,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: GLM_MODEL,
+        temperature: 0,
+        // Translation doesn't need the reasoning step, and it slows every reply.
+        thinking: { type: 'disabled' },
+        // JSON mode: the prompt fixes the reply's shape, and the count check
+        // below catches any deviation.
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              `You translate text extracted from a PDF into ${languageName(targetLang)}. ${source} ` +
+              'The user message is a JSON array of segments. Reply with a JSON object whose ' +
+              '"translations" array holds one translation per segment, in the same order and of ' +
+              'the same length. Translate faithfully and keep the wording natural. Leave math, ' +
+              'variable names, numbers, citations, URLs and code exactly as written. Do not add ' +
+              'notes or commentary.',
+          },
+          { role: 'user', content: JSON.stringify(texts) },
+        ],
+      }),
+    },
+    signal,
+  );
+
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as ChatReply;
+    throw new Error(`GLM ${res.status}: ${err.error?.message ?? 'request failed'}`);
   }
-  return results.join('\n');
+
+  const json = (await res.json()) as ChatReply;
+  const content = json.choices?.[0]?.message?.content ?? '';
+  const parts = (JSON.parse(content) as { translations: string[] }).translations;
+  if (parts.length !== texts.length) {
+    throw new Error(`Expected ${texts.length} translations, got ${parts.length}`);
+  }
+  return parts;
+}
+
+// Runs tasks with at most `limit` in flight and returns results in task order. A
+// failure, or an abort of `signal`, cancels the tasks still running and stops new
+// ones from starting.
+async function runPool<T>(
+  tasks: ((signal: AbortSignal) => Promise<T>)[],
+  limit: number,
+  signal?: AbortSignal,
+): Promise<T[]> {
+  const ctl = new AbortController();
+  const onAbort = () => ctl.abort();
+  signal?.addEventListener('abort', onAbort);
+  const results: T[] = new Array(tasks.length);
+  let next = 0;
+  const worker = async () => {
+    while (!ctl.signal.aborted && next < tasks.length) {
+      const i = next++;
+      try {
+        results[i] = await tasks[i](ctl.signal);
+      } catch (err) {
+        ctl.abort();
+        throw err;
+      }
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+    return results;
+  } finally {
+    signal?.removeEventListener('abort', onAbort);
+  }
 }
 
 /**
  * Translate a list of independent segments and get back a list of the same
- * length, aligned 1:1. Fast path: join with newlines and translate in one
- * pass (newlines survive the round-trip). If the result doesn't split back
- * cleanly, fall back to translating each segment on its own so alignment is
- * exact.
+ * length, aligned 1:1. Blank segments are skipped and come back as ''.
+ * `targetLang` is a language code from LANGUAGES or any free-form name;
+ * `sourceLang` defaults to auto-detect.
  */
 export async function translateSegments(
   segments: string[],
@@ -223,16 +202,40 @@ export async function translateSegments(
   signal?: AbortSignal,
 ): Promise<string[]> {
   const clean = segments.map((s) => s.replace(/\s+/g, ' ').trim());
-  if (clean.every((s) => !s)) return clean;
+  const todo = clean.flatMap((s, i) => (s ? [i] : []));
+  const out = clean.map(() => '');
+  if (!todo.length) return out;
 
-  const joined = clean.join('\n');
-  const out = await translateText(joined, targetLang, sourceLang, signal);
-  const parts = out.split('\n');
-  if (parts.length === clean.length) return parts;
-
-  const result: string[] = [];
-  for (const s of clean) {
-    result.push(s ? await translateText(s, targetLang, sourceLang, signal) : '');
+  if (!import.meta.env.DEV) {
+    throw new Error('Translation needs a server proxy, which the deployed site does not have yet.');
   }
-  return result;
+
+  // Group segments into batches of roughly BATCH_CHARS characters.
+  const batches: number[][] = [];
+  let current: number[] = [];
+  let chars = 0;
+  for (const i of todo) {
+    if (current.length && chars + clean[i].length > BATCH_CHARS) {
+      batches.push(current);
+      current = [];
+      chars = 0;
+    }
+    current.push(i);
+    chars += clean[i].length;
+  }
+  if (current.length) batches.push(current);
+
+  const parts = await runPool(
+    batches.map((batch) => (taskSignal: AbortSignal) =>
+      translateBatch(batch.map((i) => clean[i]), targetLang, sourceLang, taskSignal),
+    ),
+    BATCH_CONCURRENCY,
+    signal,
+  );
+  batches.forEach((batch, b) => {
+    batch.forEach((i, j) => {
+      out[i] = parts[b][j];
+    });
+  });
+  return out;
 }

@@ -25,9 +25,15 @@ https://longpanzhou.github.io/https://example.com/paper.pdf
 GitHub Pages' `404.html` SPA redirect hands the path to the React app, which
 loads the file with [`pdfjs-dist`](https://github.com/mozilla/pdf.js) and
 renders every page to a canvas. The toolbar's **Translate** button extracts the
-text layer per page and translates it via public Google Translate JSON
-endpoints (with a MyMemory fallback) — no API key, entirely client-side. Pick a
-language from the list or type any Google Translate language code.
+text layer per page and translates it with GLM (Z.ai). Browsers can't call GLM
+directly, so the viewer calls a same-origin `/glm-api` path. In local dev, Vite
+forwards that path with `GLM_API_KEY` from `.env.local`. The deployed site needs
+a server-side proxy at the same path before translation works there. Pick a
+language from the list or type any language name or code.
+
+For local testing, put `GLM_API_KEY=...` in `.env.local` (git-ignored). It isn't
+`VITE_`-prefixed, so Vite never inlines it into the public JavaScript. Keep it
+that way: a key in any `VITE_` variable ends up in the published site.
 
 Requirements: the PDF host must send permissive CORS headers
 (`Access-Control-Allow-Origin`). arXiv does.
@@ -37,13 +43,13 @@ Requirements: the PDF host must send permissive CORS headers
 ### 1. Install Dependencies
 
 ```bash
-npm install
+bun install
 ```
 
 ### 2. Run the Development Server
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Visit `http://localhost:5173` (or the URL shown in terminal)
@@ -75,7 +81,7 @@ Place your `.mp3` files in `src/music/` and update the playlist in `MusicPlayer`
 Build for production:
 
 ```bash
-npm run build
+bun run build
 ```
 
 The built files will be in the `dist/` directory.
@@ -83,7 +89,7 @@ The built files will be in the `dist/` directory.
 ### Deploy to GitHub Pages
 
 ```bash
-npm run deploy
+bun run deploy
 ```
 
 ## License

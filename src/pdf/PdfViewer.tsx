@@ -11,6 +11,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { LANGUAGES, translateSegments } from './translate';
+import { averagePageSeconds, recordPageTime } from './pageTimes';
 import { extractBlocks, type Block } from './layout';
 import './pdf.css';
 
@@ -200,6 +201,30 @@ function PdfPageView({
 
 type TransState = 'idle' | 'running' | 'done' | 'error';
 
+// The timing notice is shown once per tab session.
+const NOTICE_KEY = 'pdfv.noticeSeen';
+
+function noticeSeen(): boolean {
+  try {
+    return sessionStorage.getItem(NOTICE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markNoticeSeen(): void {
+  try {
+    sessionStorage.setItem(NOTICE_KEY, '1');
+  } catch {
+    // Storage can be blocked; the notice will just show again on the next load.
+  }
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 90) return `${Math.round(seconds)} s`;
+  return `${Math.round(seconds / 60)} min`;
+}
+
 function PdfViewer() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -220,6 +245,7 @@ function PdfViewer() {
   const [transState, setTransState] = useState<TransState>('idle');
   const [transProgress, setTransProgress] = useState(0);
   const [transError, setTransError] = useState<string | null>(null);
+  const [showNotice, setShowNotice] = useState(() => !noticeSeen());
   const [viewMode, setViewMode] = useState<ViewMode>('original');
   const abortRef = useRef<AbortController | null>(null);
 
@@ -322,14 +348,14 @@ function PdfViewer() {
         const idxs = blocks
           .map((b, k) => (b.translatable ? k : -1))
           .filter((k) => k >= 0);
-        const parts = idxs.length
-          ? await translateSegments(
-              idxs.map((k) => blocks[k].text),
-              effectiveLang,
-              'auto',
-              controller.signal,
-            )
-          : [];
+        const started = performance.now();
+        const parts = await translateSegments(
+          idxs.map((k) => blocks[k].text),
+          effectiveLang,
+          'auto',
+          controller.signal,
+        );
+        if (idxs.length) recordPageTime((performance.now() - started) / 1000);
         const full = blocks.map(() => '');
         idxs.forEach((k, j) => {
           full[k] = parts[j] ?? '';
@@ -347,6 +373,15 @@ function PdfViewer() {
 
   const blocksReady = pageBlocks.length > 0 && pageBlocks.length === numPages;
   const hasTranslation = Object.keys(translations).length > 0;
+
+  // Average time per page from past translations, shown on the progress bar.
+  const avgSecs = averagePageSeconds();
+  const avgText =
+    avgSecs === null ? 'Usually 20–30 s per page' : `Average ${Math.round(avgSecs)} s per page`;
+  const etaText =
+    avgSecs !== null && transState === 'running'
+      ? ` · about ${formatDuration((numPages - transProgress) * avgSecs)} left`
+      : '';
 
   const pageList = useMemo(
     () => Array.from({ length: numPages }, (_, i) => i + 1),
@@ -372,6 +407,36 @@ function PdfViewer() {
 
   return (
     <div className="pdfv">
+      {showNotice && (
+        <div className="pdfv__modal-backdrop">
+          <div
+            className="pdfv__modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pdfv-notice-title"
+          >
+            <h2 id="pdfv-notice-title" className="pdfv__modal-title">
+              Translation takes a while
+            </h2>
+            <p className="pdfv__label">
+              Each page can take 20–30 seconds to translate, so a full paper can
+              take several minutes.
+            </p>
+            <button
+              type="button"
+              className="pdfv__btn pdfv__btn--primary"
+              autoFocus
+              onClick={() => {
+                setShowNotice(false);
+                markNoticeSeen();
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="pdfv__toolbar">
         <form
           className="pdfv__addr"
@@ -549,6 +614,28 @@ function PdfViewer() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {(transState === 'running' || transState === 'done') && (
+        <div className="pdfv__bar" role="status" aria-live="polite">
+          <div className="pdfv__bar-track">
+            <div
+              className="pdfv__bar-fill"
+              style={{ width: `${numPages ? (transProgress / numPages) * 100 : 0}%` }}
+            />
+          </div>
+          <div className="pdfv__bar-text">
+            <span>
+              {transState === 'done'
+                ? `Translated ${numPages} pages`
+                : `Translating page ${transProgress + 1} of ${numPages}`}
+            </span>
+            <span>
+              {avgText}
+              {etaText}
+            </span>
+          </div>
         </div>
       )}
     </div>

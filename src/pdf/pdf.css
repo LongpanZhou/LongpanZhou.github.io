@@ -204,6 +204,70 @@
   max-width: 560px;
 }
 
+.pdfv__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 20, 40, 0.75);
+}
+
+.pdfv__modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  background: #1E2328;
+  color: #F0E6D2;
+  border: 1px solid #785A28;
+  border-radius: 6px;
+}
+
+.pdfv__modal-title {
+  margin: 0;
+  font-size: 18px;
+  color: #C8AA6E;
+}
+
+.pdfv__bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  padding: 8px 16px 10px;
+  background: #1E2328;
+  border-top: 1px solid #785A28;
+}
+
+.pdfv__bar-track {
+  height: 6px;
+  overflow: hidden;
+  background: #2A2F35;
+  border-radius: 3px;
+}
+
+.pdfv__bar-fill {
+  height: 100%;
+  background: #C8AA6E;
+  transition: width 0.4s ease;
+}
+
+.pdfv__bar-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #A09B8C;
+}
+
 .pdfv__spinner {
   width: 34px;
   height: 34px;
