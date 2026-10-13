@@ -21,6 +21,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build project
+        env:
+          VITE_TRANSLATE_URL: ${{ vars.VITE_TRANSLATE_URL }}
         run: bun run build
 
       - name: Upload production-ready build files
