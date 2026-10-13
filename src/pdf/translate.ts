@@ -1,9 +1,10 @@
-// Translation through Z.ai's GLM chat API. The browser never holds a key: in
-// local dev, Vite forwards /glm-api to GLM with the key attached (see
-// vite.config.ts). The deployed site needs a server-side proxy at the same path
-// before translation works there.
+// Translation through Z.ai's GLM chat API. The browser never holds a key. Local dev
+// goes through Vite, which attaches the key (see vite.config.ts). The deployed site
+// goes through the proxy in translate-proxy/, whose URL is set at build time as
+// VITE_TRANSLATE_URL.
 
-const GLM_URL = '/glm-api/api/paas/v4/chat/completions';
+const GLM_URL =
+  import.meta.env.VITE_TRANSLATE_URL || '/glm-api/api/paas/v4/chat/completions';
 const GLM_MODEL = 'glm-4.5-flash';
 
 export interface Language {
@@ -206,8 +207,8 @@ export async function translateSegments(
   const out = clean.map(() => '');
   if (!todo.length) return out;
 
-  if (!import.meta.env.DEV) {
-    throw new Error('Translation needs a server proxy, which the deployed site does not have yet.');
+  if (!import.meta.env.DEV && !import.meta.env.VITE_TRANSLATE_URL) {
+    throw new Error('Translation is not set up on this site yet.');
   }
 
   // Group segments into batches of roughly BATCH_CHARS characters.
