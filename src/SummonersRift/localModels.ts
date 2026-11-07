@@ -15,7 +15,9 @@ export interface DescribedModel {
   height: number // how tall it is made in the scene, in world units; resizing a type changes it
 }
 
-const FILE_URL = '/__local-models/file/'
+// In development the files come from the local folder through the dev route. In a build they are the
+// copies in public/models/rift, which is flat: just the file name.
+const FILE_URL = import.meta.env.DEV ? '/__local-models/file/' : import.meta.env.BASE_URL + 'models/rift/'
 
 // Works out a name, a group and a sensible height from the file's path alone.
 export function describeLocalModel(path: string, side?: 'order' | 'chaos'): DescribedModel {
@@ -54,7 +56,7 @@ export function describeLocalModel(path: string, side?: 'order' | 'chaos'): Desc
     label,
     team,
     group,
-    url: FILE_URL + path.split('/').map(encodeURIComponent).join('/'),
+    url: FILE_URL + (import.meta.env.DEV ? path.split('/') : [file]).map(encodeURIComponent).join('/'),
     height,
   }
 }
