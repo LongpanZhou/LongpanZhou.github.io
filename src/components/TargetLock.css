@@ -1,0 +1,40 @@
+/* Target lock: hovering a card draws cyan corner brackets around it, as if an agent
+   cursor has locked on. The brackets sit inside the card because some cards use a
+   clip-path, which would cut off anything drawn outside their edges. */
+
+.target-lock {
+  position: relative;
+}
+
+.target-lock::before {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.15);
+  transition: opacity 0.25s ease, transform 0.3s ease;
+  background:
+    linear-gradient(#0ac8ff, #0ac8ff) top left / 18px 2px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) top left / 2px 18px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) top right / 18px 2px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) top right / 2px 18px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) bottom left / 18px 2px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) bottom left / 2px 18px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) bottom right / 18px 2px no-repeat,
+    linear-gradient(#0ac8ff, #0ac8ff) bottom right / 2px 18px no-repeat;
+  filter: drop-shadow(0 0 4px rgba(10, 200, 255, 0.8));
+}
+
+.target-lock:hover::before,
+.target-lock.is-picked::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .target-lock::before {
+    transition: none;
+    transform: none;
+  }
+}

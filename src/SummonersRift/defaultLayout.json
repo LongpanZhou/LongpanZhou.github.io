@@ -1,0 +1,899 @@
+{
+ "added-mw62qc5s-file:nexus.glb": {
+  "x": -132.24,
+  "z": 132.6,
+  "yawDeg": 44.3,
+  "y": -6.9
+ },
+ "added-mw62r8mh-file:turrets.glb": {
+  "x": -125.56,
+  "z": 130.68,
+  "yawDeg": 122,
+  "y": -3.9
+ },
+ "added-mw62rhfk-file:turrets.glb": {
+  "x": -130.33,
+  "z": 126.09,
+  "yawDeg": 148.9,
+  "y": -4
+ },
+ "added-mw62vlkj-file:turrets.glb": {
+  "x": -111.01,
+  "z": 111.96,
+  "yawDeg": 145.7,
+  "y": -4.2
+ },
+ "added-mw62vkfg-file:turrets.glb": {
+  "x": -136.09,
+  "z": 105.24,
+  "yawDeg": 166.3,
+  "y": -4.1
+ },
+ "added-mw62vosq-file:turrets.glb": {
+  "x": -104.62,
+  "z": 136.35,
+  "yawDeg": 89.6,
+  "y": -3.8
+ },
+ "added-mw637uw9-file:nexus_16.glb": {
+  "x": -115.8,
+  "z": 116.74,
+  "yawDeg": 133.1,
+  "y": -5.3
+ },
+ "added-mw63ap35-file:nexus_16.glb": {
+  "x": -112.47,
+  "z": 136.47,
+  "yawDeg": 133.1,
+  "y": -5.3
+ },
+ "added-mw63asca-file:nexus_16.glb": {
+  "x": -136.12,
+  "z": 113.19,
+  "yawDeg": 133.1,
+  "y": -5.3
+ },
+ "added-mw63gtq2-file:turrets.glb": {
+  "x": -133.43,
+  "z": 82.14,
+  "yawDeg": 166.3,
+  "y": -4.3
+ },
+ "added-mw63hatw-file:turrets.glb": {
+  "x": -138.6,
+  "z": 44.91,
+  "yawDeg": 166.3,
+  "y": -4.3
+ },
+ "added-mw63i3kd-file:turrets.glb": {
+  "x": -97.8,
+  "z": 101.12,
+  "yawDeg": 130.7,
+  "y": -4.4
+ },
+ "added-mw63iki7-file:turrets.glb": {
+  "x": -89.6,
+  "z": 85.13,
+  "yawDeg": 130.7,
+  "y": -4.4
+ },
+ "added-mw63jk7k-file:turrets.glb": {
+  "x": -79.14,
+  "z": 133.88,
+  "yawDeg": 89.6,
+  "y": -4.2
+ },
+ "added-mw63jzr8-file:turrets.glb": {
+  "x": -42.79,
+  "z": 139.02,
+  "yawDeg": 89.6,
+  "y": -4.3
+ },
+ "added-mw63l8x2-file:nexus_1.glb": {
+  "x": -15.77,
+  "z": 16.58,
+  "yawDeg": -44.1,
+  "y": -7.9
+ },
+ "added-mw63oyv0-file:nexus_17.glb": {
+  "x": -31.91,
+  "z": 32.45,
+  "yawDeg": -50.7,
+  "y": -5.6
+ },
+ "added-mw63pkso-file:nexus_17.glb": {
+  "x": -34.69,
+  "z": 12.22,
+  "yawDeg": -50.7,
+  "y": -5.6
+ },
+ "added-mw63pohm-file:nexus_17.glb": {
+  "x": -11.62,
+  "z": 35.95,
+  "yawDeg": -50.7,
+  "y": -5.6
+ },
+ "added-mw63rky2-file:turret_1.glb": {
+  "x": -17.11,
+  "z": 22.35,
+  "yawDeg": -26.6,
+  "y": -3.5
+ },
+ "added-mw63tz1s-file:turret_1.glb": {
+  "x": -21.66,
+  "z": 17.75,
+  "yawDeg": -56.6,
+  "y": -3.5
+ },
+ "added-mw63vx0x-file:turret_1.glb": {
+  "x": -36.34,
+  "z": 36.94,
+  "yawDeg": -41.6,
+  "y": -3.5
+ },
+ "added-mw63wir2-file:turret_1.glb": {
+  "x": -11.46,
+  "z": 42.59,
+  "yawDeg": 3.4,
+  "y": -3.5
+ },
+ "added-mw63wrn3-file:turret_1.glb": {
+  "x": -42.69,
+  "z": 12.43,
+  "yawDeg": -86.6,
+  "y": -3.5
+ },
+ "added-mw63yo23-file:turret_1.glb": {
+  "x": -69.04,
+  "z": 14.78,
+  "yawDeg": -86.6,
+  "y": -4
+ },
+ "added-mw63yv3m-file:turret_1.glb": {
+  "x": -105.22,
+  "z": 10.31,
+  "yawDeg": -86.6,
+  "y": -4
+ },
+ "added-mw63zvy1-file:turret_1.glb": {
+  "x": -50.46,
+  "z": 48.23,
+  "yawDeg": -41.6,
+  "y": -4
+ },
+ "added-mw640lc9-file:turret_1.glb": {
+  "x": -58.3,
+  "z": 63.76,
+  "yawDeg": -41.6,
+  "y": -4
+ },
+ "added-mw641pde-file:turret_1.glb": {
+  "x": -14.97,
+  "z": 66.79,
+  "yawDeg": 3.4,
+  "y": -4
+ },
+ "added-mw642u8u-file:turret_1.glb": {
+  "x": -9.86,
+  "z": 103.81,
+  "yawDeg": 3.4,
+  "y": -4
+ },
+ "added-mw644fsa-file:murk_wolf.glb": {
+  "x": -109.97,
+  "z": 84.2,
+  "yawDeg": 312.1,
+  "y": -0.5
+ },
+ "added-mw644i2b-file:murk_wolf_small.glb": {
+  "x": -108.26,
+  "z": 84.59,
+  "yawDeg": 310.4,
+  "y": -0.6
+ },
+ "added-mw646qn6-file:murk_wolf_small.glb": {
+  "x": -110.66,
+  "z": 82.55,
+  "yawDeg": 310.4,
+  "y": -0.6
+ },
+ "added-mw6471yn-file:blue_sentinel.glb": {
+  "x": -109.41,
+  "z": 69.82,
+  "yawDeg": 227.1,
+  "y": -0.4
+ },
+ "added-mw64859b-file:gromp.glb": {
+  "x": -126.29,
+  "z": 64.13,
+  "yawDeg": 91.3,
+  "y": -0.6
+ },
+ "added-mw649kq0-file:blue_sentinel.glb": {
+  "x": -38.38,
+  "z": 79.01,
+  "yawDeg": 422.1,
+  "y": -0.4
+ },
+ "added-mw64a7gt-file:gromp.glb": {
+  "x": -21.49,
+  "z": 84.7,
+  "yawDeg": 288.3,
+  "y": -0.6
+ },
+ "added-mw64b6ad-file:murk_wolf.glb": {
+  "x": -37.81,
+  "z": 64.63,
+  "yawDeg": 477.1,
+  "y": -0.5
+ },
+ "added-mw64c9x7-file:murk_wolf_small.glb": {
+  "x": -37.12,
+  "z": 66.29,
+  "yawDeg": 490.4,
+  "y": -0.6
+ },
+ "added-mw64duhx-file:murk_wolf_small.glb": {
+  "x": -39.52,
+  "z": 64.25,
+  "yawDeg": 490.4,
+  "y": -0.6
+ },
+ "added-mw64epqo-file:red_brambleback.glb": {
+  "x": -71.34,
+  "z": 109.11,
+  "yawDeg": -44.7,
+  "y": -0.3
+ },
+ "added-mw64g7ry-file:red_brambleback.glb": {
+  "x": -76.44,
+  "z": 39.73,
+  "yawDeg": 120.3,
+  "y": -0.3
+ },
+ "added-mw64hfx3-file:krug_small.glb": {
+  "x": -82.73,
+  "z": 26.52,
+  "yawDeg": 166.8,
+  "y": -0.5
+ },
+ "added-mw64hdrc-file:krug.glb": {
+  "x": -84.8,
+  "z": 27.05,
+  "yawDeg": 183.6,
+  "y": -0.5
+ },
+ "added-mw64ihps-file:krug_small.glb": {
+  "x": -65.05,
+  "z": 122.32,
+  "yawDeg": 361.8,
+  "y": -0.5
+ },
+ "added-mw64jcha-file:krug.glb": {
+  "x": -62.98,
+  "z": 121.78,
+  "yawDeg": 363.6,
+  "y": -0.5
+ },
+ "added-mw64kof6-file:raptor.glb": {
+  "x": -79.34,
+  "z": 93.82,
+  "yawDeg": 403.9,
+  "y": -0.5
+ },
+ "added-mw64km0f-file:raptor_small.glb": {
+  "x": -77.73,
+  "z": 93.11,
+  "yawDeg": 353.6,
+  "y": -0.5
+ },
+ "added-mw64o6n6-file:raptor_small.glb": {
+  "x": -76.86,
+  "z": 94.53,
+  "yawDeg": 293.6,
+  "y": -0.5
+ },
+ "added-mw64o83y-file:raptor_small.glb": {
+  "x": -79.91,
+  "z": 96.59,
+  "yawDeg": 368.6,
+  "y": -0.5
+ },
+ "added-mw64o8n9-file:raptor_small.glb": {
+  "x": -77.13,
+  "z": 96.82,
+  "yawDeg": 338.6,
+  "y": -0.5
+ },
+ "added-mw64o98p-file:raptor_small.glb": {
+  "x": -78.61,
+  "z": 95.66,
+  "yawDeg": 398.6,
+  "y": -0.5
+ },
+ "added-mw64q7ra-file:raptor_small.glb": {
+  "x": -70.05,
+  "z": 55.72,
+  "yawDeg": 518.6,
+  "y": -0.5
+ },
+ "added-mw64qkaa-file:raptor.glb": {
+  "x": -68.44,
+  "z": 55.01,
+  "yawDeg": 583.9,
+  "y": -0.5
+ },
+ "added-mw64r8eo-file:raptor_small.glb": {
+  "x": -70.92,
+  "z": 54.3,
+  "yawDeg": 503.6,
+  "y": -0.5
+ },
+ "added-mw64r8sz-file:raptor_small.glb": {
+  "x": -69.17,
+  "z": 53.18,
+  "yawDeg": 593.6,
+  "y": -0.5
+ },
+ "added-mw64r9bd-file:raptor_small.glb": {
+  "x": -70.65,
+  "z": 52.02,
+  "yawDeg": 518.6,
+  "y": -0.5
+ },
+ "added-mw64r9vk-file:raptor_small.glb": {
+  "x": -67.88,
+  "z": 52.24,
+  "yawDeg": 563.6,
+  "y": -0.5
+ },
+ "__typeScales": {
+  "Dragon": 3.225,
+  "Rift Herald": 1.34,
+  "tower": 1.629,
+  "nexus": 1.276,
+  "Blue sentinel": 1.276,
+  "Red brambleback": 1.551,
+  "file:nexus_16.glb": 0.952,
+  "file:nexus_1.glb": 1.477,
+  "file:turret_1.glb": 1.477,
+  "file:murk_wolf_small.glb": 0.585,
+  "file:raptor_small.glb": 0.458,
+  "file:raptor.glb": 0.823,
+  "file:dragon.glb": 3.225,
+  "Baron Nashor": 1.407,
+  "file:rift_herald.glb": 1.34
+ },
+ "__names": {
+  "added-mw62r8mh-file:turrets.glb": "nexus_turret_left",
+  "added-mw62rhfk-file:turrets.glb": "nexus_turret_right",
+  "added-mw63ap35-file:nexus_16.glb": "top_inhibitor",
+  "added-mw637uw9-file:nexus_16.glb": "mid_inhibitor",
+  "added-mw63asca-file:nexus_16.glb": "bot_inhibitor",
+  "added-mw62vkfg-file:turrets.glb": "tier3_bot",
+  "added-mw62vlkj-file:turrets.glb": "tier3_mid",
+  "added-mw62vosq-file:turrets.glb": "tier3_top",
+  "added-mw63gtq2-file:turrets.glb": "tier2_bot",
+  "added-mw63hatw-file:turrets.glb": "tier1_bot",
+  "added-mw63i3kd-file:turrets.glb": "tier2_mid",
+  "added-mw63iki7-file:turrets.glb": "tier1_mid",
+  "added-mw63jk7k-file:turrets.glb": "tier2_top",
+  "added-mw63jzr8-file:turrets.glb": "tier1_top",
+  "added-mw63l8x2-file:nexus_1.glb": "nexus",
+  "added-mw63pkso-file:nexus_17.glb": "bot_inhibitor",
+  "added-mw63oyv0-file:nexus_17.glb": "mid_inhibitor",
+  "added-mw63pohm-file:nexus_17.glb": "top_inhibitor",
+  "added-mw63tz1s-file:turret_1.glb": "nexus_left_turret",
+  "added-mw63rky2-file:turret_1.glb": "nexus_right_turret",
+  "added-mw63vx0x-file:turret_1.glb": "tier3_mid",
+  "added-mw63wir2-file:turret_1.glb": "tier3_top",
+  "added-mw63wrn3-file:turret_1.glb": "tier3_bot",
+  "added-mw63yo23-file:turret_1.glb": "tier2_bot",
+  "added-mw63yv3m-file:turret_1.glb": "tier1_bot",
+  "added-mw63zvy1-file:turret_1.glb": "tier2_mid",
+  "added-mw640lc9-file:turret_1.glb": "tier1_mid",
+  "added-mw641pde-file:turret_1.glb": "tier2_top",
+  "added-mw642u8u-file:turret_1.glb": "tier1_top"
+ },
+ "__added": [
+  {
+   "id": "added-mw62qc5s-file:nexus.glb",
+   "type": "file:nexus.glb",
+   "x": -132.24,
+   "z": 132.6,
+   "yawDeg": 44.3
+  },
+  {
+   "id": "added-mw62r8mh-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -125.56,
+   "z": 130.68,
+   "yawDeg": 122
+  },
+  {
+   "id": "added-mw62rhfk-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -130.33,
+   "z": 126.09,
+   "yawDeg": 148.9
+  },
+  {
+   "id": "added-mw62vlkj-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -111.01,
+   "z": 111.96,
+   "yawDeg": 145.7
+  },
+  {
+   "id": "added-mw62vkfg-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -136.09,
+   "z": 105.24,
+   "yawDeg": 166.3
+  },
+  {
+   "id": "added-mw62vosq-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -104.62,
+   "z": 136.35,
+   "yawDeg": 89.6
+  },
+  {
+   "id": "added-mw637uw9-file:nexus_16.glb",
+   "type": "file:nexus_16.glb",
+   "x": -115.8,
+   "z": 116.74,
+   "yawDeg": 133.1
+  },
+  {
+   "id": "added-mw63ap35-file:nexus_16.glb",
+   "type": "file:nexus_16.glb",
+   "x": -112.47,
+   "z": 136.47,
+   "yawDeg": 133.1
+  },
+  {
+   "id": "added-mw63asca-file:nexus_16.glb",
+   "type": "file:nexus_16.glb",
+   "x": -136.12,
+   "z": 113.19,
+   "yawDeg": 133.1
+  },
+  {
+   "id": "added-mw63gtq2-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -133.43,
+   "z": 82.14,
+   "yawDeg": 166.3
+  },
+  {
+   "id": "added-mw63hatw-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -138.6,
+   "z": 44.91,
+   "yawDeg": 166.3
+  },
+  {
+   "id": "added-mw63i3kd-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -97.8,
+   "z": 101.12,
+   "yawDeg": 130.7
+  },
+  {
+   "id": "added-mw63iki7-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -89.6,
+   "z": 85.13,
+   "yawDeg": 130.7
+  },
+  {
+   "id": "added-mw63jk7k-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -79.14,
+   "z": 133.88,
+   "yawDeg": 89.6
+  },
+  {
+   "id": "added-mw63jzr8-file:turrets.glb",
+   "type": "file:turrets.glb",
+   "x": -42.79,
+   "z": 139.02,
+   "yawDeg": 89.6
+  },
+  {
+   "id": "added-mw63l8x2-file:nexus_1.glb",
+   "type": "file:nexus_1.glb",
+   "x": -15.77,
+   "z": 16.58,
+   "yawDeg": -44.1
+  },
+  {
+   "id": "added-mw63oyv0-file:nexus_17.glb",
+   "type": "file:nexus_17.glb",
+   "x": -31.91,
+   "z": 32.45,
+   "yawDeg": -50.7
+  },
+  {
+   "id": "added-mw63pkso-file:nexus_17.glb",
+   "type": "file:nexus_17.glb",
+   "x": -34.69,
+   "z": 12.22,
+   "yawDeg": -50.7
+  },
+  {
+   "id": "added-mw63pohm-file:nexus_17.glb",
+   "type": "file:nexus_17.glb",
+   "x": -11.62,
+   "z": 35.95,
+   "yawDeg": -50.7
+  },
+  {
+   "id": "added-mw63rky2-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -17.11,
+   "z": 22.35,
+   "yawDeg": -26.6
+  },
+  {
+   "id": "added-mw63tz1s-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -21.66,
+   "z": 17.75,
+   "yawDeg": -56.6
+  },
+  {
+   "id": "added-mw63vx0x-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -36.34,
+   "z": 36.94,
+   "yawDeg": -41.6
+  },
+  {
+   "id": "added-mw63wir2-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -11.46,
+   "z": 42.59,
+   "yawDeg": 3.4
+  },
+  {
+   "id": "added-mw63wrn3-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -42.69,
+   "z": 12.43,
+   "yawDeg": -86.6
+  },
+  {
+   "id": "added-mw63yo23-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -69.04,
+   "z": 14.78,
+   "yawDeg": -86.6
+  },
+  {
+   "id": "added-mw63yv3m-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -105.22,
+   "z": 10.31,
+   "yawDeg": -86.6
+  },
+  {
+   "id": "added-mw63zvy1-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -50.46,
+   "z": 48.23,
+   "yawDeg": -41.6
+  },
+  {
+   "id": "added-mw640lc9-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -58.3,
+   "z": 63.76,
+   "yawDeg": -41.6
+  },
+  {
+   "id": "added-mw641pde-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -14.97,
+   "z": 66.79,
+   "yawDeg": 3.4
+  },
+  {
+   "id": "added-mw642u8u-file:turret_1.glb",
+   "type": "file:turret_1.glb",
+   "x": -9.86,
+   "z": 103.81,
+   "yawDeg": 3.4
+  },
+  {
+   "id": "added-mw644fsa-file:murk_wolf.glb",
+   "type": "file:murk_wolf.glb",
+   "x": -109.97,
+   "z": 84.2,
+   "yawDeg": 312.1
+  },
+  {
+   "id": "added-mw644i2b-file:murk_wolf_small.glb",
+   "type": "file:murk_wolf_small.glb",
+   "x": -108.26,
+   "z": 84.59,
+   "yawDeg": 310.4
+  },
+  {
+   "id": "added-mw646qn6-file:murk_wolf_small.glb",
+   "type": "file:murk_wolf_small.glb",
+   "x": -110.66,
+   "z": 82.55,
+   "yawDeg": 310.4
+  },
+  {
+   "id": "added-mw6471yn-file:blue_sentinel.glb",
+   "type": "file:blue_sentinel.glb",
+   "x": -109.41,
+   "z": 69.82,
+   "yawDeg": 227.1
+  },
+  {
+   "id": "added-mw64859b-file:gromp.glb",
+   "type": "file:gromp.glb",
+   "x": -126.29,
+   "z": 64.13,
+   "yawDeg": 91.3
+  },
+  {
+   "id": "added-mw649kq0-file:blue_sentinel.glb",
+   "type": "file:blue_sentinel.glb",
+   "x": -38.38,
+   "z": 79.01,
+   "yawDeg": 422.1
+  },
+  {
+   "id": "added-mw64a7gt-file:gromp.glb",
+   "type": "file:gromp.glb",
+   "x": -21.49,
+   "z": 84.7,
+   "yawDeg": 288.3
+  },
+  {
+   "id": "added-mw64b6ad-file:murk_wolf.glb",
+   "type": "file:murk_wolf.glb",
+   "x": -37.81,
+   "z": 64.63,
+   "yawDeg": 477.1
+  },
+  {
+   "id": "added-mw64c9x7-file:murk_wolf_small.glb",
+   "type": "file:murk_wolf_small.glb",
+   "x": -37.12,
+   "z": 66.29,
+   "yawDeg": 490.4
+  },
+  {
+   "id": "added-mw64duhx-file:murk_wolf_small.glb",
+   "type": "file:murk_wolf_small.glb",
+   "x": -39.52,
+   "z": 64.25,
+   "yawDeg": 490.4
+  },
+  {
+   "id": "added-mw64epqo-file:red_brambleback.glb",
+   "type": "file:red_brambleback.glb",
+   "x": -71.34,
+   "z": 109.11,
+   "yawDeg": -44.7
+  },
+  {
+   "id": "added-mw64g7ry-file:red_brambleback.glb",
+   "type": "file:red_brambleback.glb",
+   "x": -76.44,
+   "z": 39.73,
+   "yawDeg": 120.3
+  },
+  {
+   "id": "added-mw64hfx3-file:krug_small.glb",
+   "type": "file:krug_small.glb",
+   "x": -82.73,
+   "z": 26.52,
+   "yawDeg": 166.8
+  },
+  {
+   "id": "added-mw64hdrc-file:krug.glb",
+   "type": "file:krug.glb",
+   "x": -84.8,
+   "z": 27.05,
+   "yawDeg": 183.6
+  },
+  {
+   "id": "added-mw64ihps-file:krug_small.glb",
+   "type": "file:krug_small.glb",
+   "x": -65.05,
+   "z": 122.32,
+   "yawDeg": 361.8
+  },
+  {
+   "id": "added-mw64jcha-file:krug.glb",
+   "type": "file:krug.glb",
+   "x": -62.98,
+   "z": 121.78,
+   "yawDeg": 363.6
+  },
+  {
+   "id": "added-mw64kof6-file:raptor.glb",
+   "type": "file:raptor.glb",
+   "x": -79.34,
+   "z": 93.82,
+   "yawDeg": 403.9
+  },
+  {
+   "id": "added-mw64km0f-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -77.73,
+   "z": 93.11,
+   "yawDeg": 353.6
+  },
+  {
+   "id": "added-mw64o6n6-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -76.86,
+   "z": 94.53,
+   "yawDeg": 293.6
+  },
+  {
+   "id": "added-mw64o83y-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -79.91,
+   "z": 96.59,
+   "yawDeg": 368.6
+  },
+  {
+   "id": "added-mw64o8n9-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -77.13,
+   "z": 96.82,
+   "yawDeg": 338.6
+  },
+  {
+   "id": "added-mw64o98p-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -78.61,
+   "z": 95.66,
+   "yawDeg": 398.6
+  },
+  {
+   "id": "added-mw64q7ra-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -70.05,
+   "z": 55.72,
+   "yawDeg": 518.6
+  },
+  {
+   "id": "added-mw64qkaa-file:raptor.glb",
+   "type": "file:raptor.glb",
+   "x": -68.44,
+   "z": 55.01,
+   "yawDeg": 583.9
+  },
+  {
+   "id": "added-mw64r8eo-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -70.92,
+   "z": 54.3,
+   "yawDeg": 503.6
+  },
+  {
+   "id": "added-mw64r8sz-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -69.17,
+   "z": 53.18,
+   "yawDeg": 593.6
+  },
+  {
+   "id": "added-mw64r9bd-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -70.65,
+   "z": 52.02,
+   "yawDeg": 518.6
+  },
+  {
+   "id": "added-mw64r9vk-file:raptor_small.glb",
+   "type": "file:raptor_small.glb",
+   "x": -67.88,
+   "z": 52.24,
+   "yawDeg": 563.6
+  }
+ ],
+ "__deleted": [
+  "blue-tower-0",
+  "blue-tower-2",
+  "camp-Gromp-blue",
+  "camp-Blue sentinel-blue",
+  "blue-tower-1",
+  "camp-Scuttle crab-red",
+  "camp-Krug-red",
+  "red-tower-5",
+  "camp-Red brambleback-red",
+  "camp-Void grubs-blue",
+  "camp-Murk wolf-blue",
+  "blue-tower-4",
+  "camp-Red brambleback-blue",
+  "camp-Krug-blue",
+  "blue-tower-5",
+  "camp-Void grubs-red",
+  "camp-Scuttle crab-blue",
+  "camp-Murk wolf-red",
+  "camp-Blue sentinel-red",
+  "camp-Gromp-red",
+  "red-tower-1",
+  "red-tower-2",
+  "blue-tower-3",
+  "red-tower-0",
+  "red-turret-1",
+  "red-nexus",
+  "red-turret-0",
+  "red-tower-4",
+  "blue-nexus",
+  "blue-turret-1",
+  "blue-turret-0"
+ ],
+ "__locked": [
+  "added-mw62qc5s-file:nexus.glb",
+  "added-mw62r8mh-file:turrets.glb",
+  "added-mw62rhfk-file:turrets.glb",
+  "added-mw62vlkj-file:turrets.glb",
+  "added-mw62vkfg-file:turrets.glb",
+  "added-mw62vosq-file:turrets.glb",
+  "added-mw637uw9-file:nexus_16.glb",
+  "added-mw63ap35-file:nexus_16.glb",
+  "added-mw63asca-file:nexus_16.glb",
+  "added-mw63gtq2-file:turrets.glb",
+  "added-mw63hatw-file:turrets.glb",
+  "added-mw63i3kd-file:turrets.glb",
+  "added-mw63iki7-file:turrets.glb",
+  "added-mw63jk7k-file:turrets.glb",
+  "added-mw63jzr8-file:turrets.glb",
+  "added-mw63l8x2-file:nexus_1.glb",
+  "added-mw63oyv0-file:nexus_17.glb",
+  "added-mw63pkso-file:nexus_17.glb",
+  "added-mw63pohm-file:nexus_17.glb",
+  "added-mw63rky2-file:turret_1.glb",
+  "added-mw63tz1s-file:turret_1.glb",
+  "added-mw63vx0x-file:turret_1.glb",
+  "added-mw63wir2-file:turret_1.glb",
+  "added-mw63wrn3-file:turret_1.glb",
+  "added-mw63yo23-file:turret_1.glb",
+  "added-mw63yv3m-file:turret_1.glb",
+  "added-mw63zvy1-file:turret_1.glb",
+  "added-mw640lc9-file:turret_1.glb",
+  "added-mw641pde-file:turret_1.glb",
+  "added-mw642u8u-file:turret_1.glb",
+  "added-mw644fsa-file:murk_wolf.glb",
+  "added-mw644i2b-file:murk_wolf_small.glb",
+  "added-mw646qn6-file:murk_wolf_small.glb",
+  "added-mw6471yn-file:blue_sentinel.glb",
+  "added-mw64859b-file:gromp.glb",
+  "added-mw649kq0-file:blue_sentinel.glb",
+  "added-mw64a7gt-file:gromp.glb",
+  "added-mw64b6ad-file:murk_wolf.glb",
+  "added-mw64c9x7-file:murk_wolf_small.glb",
+  "added-mw64duhx-file:murk_wolf_small.glb",
+  "added-mw64epqo-file:red_brambleback.glb",
+  "added-mw64g7ry-file:red_brambleback.glb",
+  "added-mw64hfx3-file:krug_small.glb",
+  "added-mw64hdrc-file:krug.glb",
+  "added-mw64ihps-file:krug_small.glb",
+  "added-mw64jcha-file:krug.glb",
+  "added-mw64kof6-file:raptor.glb",
+  "added-mw64km0f-file:raptor_small.glb",
+  "added-mw64o6n6-file:raptor_small.glb",
+  "added-mw64o83y-file:raptor_small.glb",
+  "added-mw64o8n9-file:raptor_small.glb",
+  "added-mw64o98p-file:raptor_small.glb",
+  "added-mw64q7ra-file:raptor_small.glb",
+  "added-mw64qkaa-file:raptor.glb",
+  "added-mw64r8eo-file:raptor_small.glb",
+  "added-mw64r9bd-file:raptor_small.glb",
+  "added-mw64r9vk-file:raptor_small.glb"
+ ],
+ "__savedAt": "2026-11-07T08:40:37.478Z"
+}

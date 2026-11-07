@@ -10,71 +10,57 @@ const titleCase = (slug: string): string =>
     .join(' ');
 
 /**
- * Merge the live GitHub repo list with the curated entries in projects.ts.
- * A curated entry keeps its polished description / topics / demo link but
- * takes its star count and language from GitHub. Repos with no curated entry
- * are added using GitHub's own metadata. Forks are dropped.
+ * Builds the project list straight from GitHub: name, description, language, stars, topics and
+ * homepage all come from the API, so nothing on the page is hand-written. Forks are dropped. The curated list in projects.ts is
+ * only the offline fallback when the API cannot be reached.
  */
-function merge(repos: GitHubRepo[]): Project[] {
-  const byName = new Map(curated.map((p) => [p.name.toLowerCase(), p]));
-  const seen = new Set<string>();
-  const out: Project[] = [];
-
-  for (const repo of repos) {
-    // Skip forks and the special profile-README repo (LongpanZhou/LongpanZhou).
-    if (repo.fork || repo.name.toLowerCase() === 'longpanzhou') continue;
-    const key = repo.name.toLowerCase();
-    seen.add(key);
-    const c = byName.get(key);
-    if (c) {
-      out.push({
-        ...c,
-        stars: repo.stars,
-        language: repo.language ?? c.language,
-      });
-    } else {
-      out.push({
-        name: repo.name,
-        description: repo.description?.trim() || 'No description provided.',
-        language: repo.language ?? 'Other',
-        stars: repo.stars,
-        topics: repo.topics.slice(0, 3).map(titleCase),
-        url: repo.html_url,
-        featured: false,
-        demoUrl: repo.homepage?.startsWith('http') ? repo.homepage : undefined,
-      });
-    }
-  }
-
-  // Keep curated repos GitHub didn't return (private, renamed, etc.).
-  for (const c of curated) {
-    if (!seen.has(c.name.toLowerCase())) out.push(c);
-  }
-
-  return out.sort(
-    (a, b) =>
-      Number(b.featured) - Number(a.featured) ||
-      b.stars - a.stars ||
-      a.name.localeCompare(b.name),
-  );
+function fromGitHub(repos: GitHubRepo[]): Project[] {
+  return repos
+    .filter((repo) => !repo.fork)
+    .map((repo) => ({
+      name: repo.name,
+      description: repo.description?.trim() || 'No description provided.',
+      language: repo.language ?? 'Other',
+      stars: repo.stars,
+      topics: repo.topics.slice(0, 3).map(titleCase),
+      url: repo.html_url,
+      featured: false,
+      // No demo link for this site's own repo: it would just link back to the page you are on
+      demoUrl:
+        repo.homepage?.startsWith('http') && !/github\.io/i.test(repo.homepage) ? repo.homepage : undefined,
+      pushedAt: repo.pushed_at,
+    }))
+    .sort(
+      (a, b) =>
+        // Most stars first; the same stars, most recently updated first
+        b.stars - a.stars ||
+        (b.pushedAt ?? '').localeCompare(a.pushedAt ?? '') ||
+        a.name.localeCompare(b.name),
+    );
 }
 
 /**
- * The project list. Starts with the curated list, then swaps in the merged
- * live list once GitHub responds (or stays curated if the fetch fails).
+ * The project list plus whether the live fetch is still pending. The curated list is the
+ * fallback when GitHub is unreachable; while loading, the page shows a loader instead of the
+ * placeholder so nothing jumps when the live list arrives.
  */
-export function useProjects(): Project[] {
+export function useProjects(enabled = true): { projects: Project[]; loading: boolean } {
   const [list, setList] = useState<Project[]>(curated);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     fetchRepos(controller.signal)
-      .then((repos) => setList(merge(repos)))
+      .then((repos) => setList(fromGitHub(repos)))
       .catch(() => {
         /* keep curated fallback */
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [enabled]);
 
-  return list;
+  return { projects: list, loading };
 }

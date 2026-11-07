@@ -5,9 +5,9 @@ function ProjectCard({ project }: { project: Project }) {
   const langColor = languageColors[project.language] || '#888';
 
   return (
-    <div className="project-card">
+    <div className="project-card target-lock" data-draw={project.name} data-draw-kind="minion">
       <div className="project-card__header">
-        <h3 className="project-card__name">{project.name}</h3>
+        <h3 className="project-card__name" data-hud-type data-hud-type-together>{project.name}</h3>
         {project.stars > 0 && (
           <span className="project-card__stars">
             &#9733; {project.stars}
@@ -21,7 +21,7 @@ function ProjectCard({ project }: { project: Project }) {
         ))}
       </div>
 
-      <p className="project-card__desc">{project.description}</p>
+      <p className="project-card__desc" data-hud-type data-hud-type-together>{project.description}</p>
 
       <div className="project-card__footer">
         <span className="project-card__lang">

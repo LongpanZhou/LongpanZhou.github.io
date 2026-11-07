@@ -85,15 +85,14 @@
 /* Controls Info */
 .controls-info {
   position: absolute;
-  bottom: 20px;
+  /* Top-left, just under the Position box (which is at top: 100px and about 70px tall); the music
+     player starts in the bottom-left corner */
+  top: 190px;
   left: 20px;
   z-index: 100;
-  background: linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(10, 20, 40, 0.9) 100%);
-  border: 2px solid rgba(200, 170, 110, 0.5);
-  border-radius: 10px;
-  padding: 20px;
+  padding: calc(20px * var(--hud-scale, 1));
   min-width: 250px;
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+  overflow: auto;
 }
 
 .controls-info h3 {
@@ -115,8 +114,9 @@
 .controls-info li {
   color: #a09b8c;
   font-size: 14px;
-  line-height: 1.8;
+  line-height: 1.55;
   margin-bottom: 8px;
+  white-space: nowrap;
 }
 
 .controls-info li strong {
@@ -145,7 +145,8 @@
 /* Responsive */
 @media (max-width: 768px) {
   .controls-info {
-    bottom: 10px;
+    top: 190px;
+    bottom: auto;
     left: 10px;
     right: 10px;
     min-width: auto;
@@ -159,4 +160,425 @@
   .controls-info li {
     font-size: 12px;
   }
+}
+
+
+/* Minimize button in the top-right corner of the HUD panels (see PanelChrome.tsx) */
+.panel-chrome {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c8aa6e;
+  font: 10px Consolas, ui-monospace, monospace;
+  letter-spacing: 1px;
+  user-select: none;
+}
+
+/* The profile card has its own close button in the corner, so the minus sits beside it */
+.panel-chrome--shifted {
+  top: 16px;
+  right: 56px;
+}
+
+.panel-chrome button {
+  /* Every button is the same fixed box, so the minimize (—) and close (✕) glyphs, which are
+     different widths, no longer make different-sized buttons */
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 18px;
+  padding: 0;
+  line-height: 1;
+  background: none;
+  border: 1px solid rgba(200, 170, 110, 0.7);
+  color: #c8aa6e;
+  font: 11px Consolas, ui-monospace, monospace;
+  cursor: pointer;
+}
+
+/* Minimized: the panel shrinks to its handle */
+.panel-min {
+  /* Every collapsed box is exactly the same size */
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 112px !important;
+  min-width: 112px !important;
+  max-width: 112px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  clip-path: none !important;
+  background: rgba(1, 10, 19, 0.92) !important;
+  /* One shared look for every collapsed box, whatever the full panel looked like */
+  border: 2px solid #c8aa6e !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 20px rgba(200, 170, 110, 0.3) !important;
+  backdrop-filter: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  /* Every collapsed box lays out the same way. The Projects, README and Blog boxes are columns when
+     open, and a column would leave their handle stuck at the top of the pill. */
+  flex-direction: row !important;
+  justify-content: flex-start !important;
+}
+
+/* Decorations of an open box (the Projects box's gold line along its top edge) are not drawn on
+   the collapsed one */
+.panel-min::before,
+.panel-min::after {
+  display: none !important;
+}
+
+/* A long name (a README's repository) is cut with an ellipsis instead of spilling out of the pill */
+.panel-min .panel-chrome__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-min > :not(.panel-chrome) {
+  display: none !important;
+}
+
+.panel-min > .panel-chrome {
+  position: static;
+  width: 100%;
+  padding: 0 8px;
+  justify-content: space-between;
+  background: none;
+  border: none;
+}
+
+
+/* Resize handles on a resizable panel (see PanelChrome.tsx): every edge and corner */
+.panel-resize {
+  position: absolute;
+  z-index: 6;
+  touch-action: none;
+}
+
+.panel-resize--n { top: 0; left: 14px; right: 14px; height: 7px; cursor: ns-resize !important; }
+.panel-resize--s { bottom: 0; left: 14px; right: 14px; height: 7px; cursor: ns-resize !important; }
+.panel-resize--e { right: 0; top: 14px; bottom: 14px; width: 7px; cursor: ew-resize !important; }
+.panel-resize--w { left: 0; top: 14px; bottom: 14px; width: 7px; cursor: ew-resize !important; }
+.panel-resize--ne { top: 0; right: 0; width: 16px; height: 16px; cursor: nesw-resize !important; }
+.panel-resize--sw { bottom: 0; left: 0; width: 16px; height: 16px; cursor: nesw-resize !important; }
+.panel-resize--nw { top: 0; left: 0; width: 16px; height: 16px; cursor: nwse-resize !important; }
+.panel-resize--se { bottom: 0; right: 0; width: 16px; height: 16px; cursor: nwse-resize !important; }
+
+/* A small corner mark shows the panel can be resized */
+.panel-resize--ne::after,
+.panel-resize--sw::after,
+.panel-resize--nw::after,
+.panel-resize--se::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  opacity: 0.6;
+  border: 0 solid #c8aa6e;
+}
+
+.panel-resize--ne::after { top: 3px; right: 3px; border-top-width: 2px; border-right-width: 2px; }
+.panel-resize--nw::after { top: 3px; left: 3px; border-top-width: 2px; border-left-width: 2px; }
+.panel-resize--se::after { bottom: 3px; right: 3px; border-bottom-width: 2px; border-right-width: 2px; }
+.panel-resize--sw::after { bottom: 3px; left: 3px; border-bottom-width: 2px; border-left-width: 2px; }
+
+/* The layout editor. Its inventory grid fills whatever height the panel is given, so resizing
+   the panel makes more (or fewer) models visible. */
+.layout-editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-editor:not([data-fitted]) {
+  overflow-y: auto !important;
+}
+
+.layout-editor[data-fitted] {
+  overflow: hidden !important;
+}
+
+.layout-editor__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 0;
+}
+
+.layout-editor__inv {
+  display: flex;
+  flex: 1 1 440px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.layout-editor__grid {
+  min-height: 200px;
+  max-height: calc(100vh - 330px);
+}
+
+.layout-editor__side {
+  flex: 0 0 230px;
+  min-width: 0;
+}
+
+.layout-editor[data-fitted] .layout-editor__body {
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.layout-editor[data-fitted] .layout-editor__inv {
+  min-height: 0;
+}
+
+.layout-editor[data-fitted] .layout-editor__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.layout-editor[data-fitted] .layout-editor__side {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+
+/* Larger resize hit areas: 12px along each edge, 24px at each corner, all inside the panel so
+   they never sit over the panel's own drag handle or minimize button. */
+.panel-resize { z-index: 4; }
+.panel-resize--n, .panel-resize--s { left: 24px; right: 24px; height: 12px; }
+.panel-resize--e, .panel-resize--w { top: 24px; bottom: 24px; width: 12px; }
+.panel-resize--n { top: 0; }
+.panel-resize--s { bottom: 0; }
+.panel-resize--e { right: 0; }
+.panel-resize--w { left: 0; }
+.panel-resize--ne, .panel-resize--nw, .panel-resize--se, .panel-resize--sw { width: 24px; height: 24px; }
+.panel-resize--ne { top: 0; right: 0; }
+.panel-resize--nw { top: 0; left: 0; }
+.panel-resize--se { bottom: 0; right: 0; }
+.panel-resize--sw { bottom: 0; left: 0; }
+
+/* The resize cursor hint: a cursor moving into the bottom-right corner, pressing and nudging it.
+   Shown until the panel has been resized once. */
+/* The resize cursor, placed on the panel's bottom-right corner by LayoutEditorUI */
+.layout-editor__cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 34px;
+  /* Above the HUD drawing overlay (2000), below the nav's menus */
+  z-index: 2600;
+  pointer-events: none;
+}
+
+.layout-editor__hint {
+  position: relative;
+  width: 18px;
+  height: 22px;
+  animation: layout-editor-hint 3.2s ease-in-out forwards;
+  filter: drop-shadow(0 0 6px rgba(10, 200, 255, 0.8));
+}
+
+.layout-editor__hint svg {
+  display: block;
+}
+
+.layout-editor__tag {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  padding: 3px 6px;
+  font: bold 10px/1 Consolas, ui-monospace, "Courier New", monospace;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  background: #0ac8ff;
+  color: #010a13;
+}
+
+/* Dashed crosshair through the tip, like the HUD agents */
+.layout-editor__guide {
+  position: absolute;
+  background: repeating-linear-gradient(90deg, rgba(10, 200, 255, 0.7) 0 4px, transparent 4px 8px);
+}
+.layout-editor__guide--h { left: -40px; top: 1px; width: 40px; height: 1px; }
+.layout-editor__guide--v {
+  left: 1px;
+  top: -40px;
+  width: 1px;
+  height: 40px;
+  background: repeating-linear-gradient(180deg, rgba(10, 200, 255, 0.7) 0 4px, transparent 4px 8px);
+}
+
+/* A click ring at the cursor tip, timed with the press in the hint animation */
+.layout-editor__hint::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #0ac8ff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: layout-editor-click 3.2s ease-in-out infinite;
+}
+
+@keyframes layout-editor-click {
+  0%, 47% { transform: scale(0.2); opacity: 0; }
+  52% { transform: scale(0.5); opacity: 0.9; }
+  68% { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+/* Only a real resize in this session hides the hint. Restoring a remembered size does not:
+   the point is to show the corner can be dragged. */
+.layout-editor[data-resized] .layout-editor__hint {
+  display: none;
+}
+
+/* Collapsed boxes have no resize handles */
+.panel-min .panel-resize {
+  display: none !important;
+}
+
+@keyframes layout-editor-hint {
+  /* The cursor rides the panel's corner (placed by JS) while the panel really resizes
+     between ~40% and ~90% of this animation. */
+  0% { transform: translate(-40px, -34px); opacity: 0; }
+  12% { opacity: 1; }
+  38% { transform: translate(0, 0); opacity: 1; }
+  44% { transform: translate(0, 0) scale(0.82); }
+  50% { transform: translate(0, 0) scale(1); }
+  92% { transform: translate(0, 0); opacity: 1; }
+  100% { transform: translate(-40px, -34px); opacity: 0; }
+}
+/* Profile card resize handles */
+.profile-resize--n, .profile-resize--s { left: 0; right: 0; height: 8px; }
+.profile-resize--e, .profile-resize--w { top: 0; bottom: 0; width: 8px; }
+.profile-resize--n { top: 0; }
+.profile-resize--s { bottom: 0; }
+.profile-resize--e { right: 0; }
+.profile-resize--w { left: 0; }
+.profile-resize--ne, .profile-resize--nw, .profile-resize--se, .profile-resize--sw { width: 20px; height: 20px; }
+.profile-resize--ne { top: 0; right: 0; }
+.profile-resize--nw { top: 0; left: 0; }
+.profile-resize--se { bottom: 0; right: 0; }
+.profile-resize--sw { bottom: 0; left: 0; }
+
+.profile-resize-cursor { position: fixed; z-index: 4001; pointer-events: none; transition: opacity 0.15s; }
+.profile-resize-cursor.visible { opacity: 1; }
+.profile-resize-cursor.hidden { opacity: 0; }
+
+/* Resizable HUD boxes zoom their content to fit, so fonts, buttons and gaps shrink or grow with
+   the box instead of being clipped or scrolled. Lines never re-wrap while resizing, and glyphs are
+   laid out at exact sizes, which is what stops the text shaking. */
+.panel-fit > :not(.panel-chrome):not(.panel-resize) {
+  zoom: var(--hud-scale, 1);
+  white-space: nowrap;
+  text-rendering: geometricPrecision;
+}
+
+.panel-fit {
+  overflow: hidden !important;
+  scrollbar-width: none;
+}
+.panel-fit::-webkit-scrollbar {
+  display: none;
+}
+
+/* Text-only boxes (Position) reflow their text to fill the box: it wraps and grows to the largest
+   size that fits, and the lines stay centred vertically. */
+.panel-fit.panel-fill > :not(.panel-chrome):not(.panel-resize) {
+  /* Each line stays one line: the text grows until the widest line fills the width or the lines
+     fill the height, whichever comes first. */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  flex: none;
+}
+
+/* The Position box's two lines are spread over the full height */
+.panel-fit.panel-fill[data-hud-draw="Position"][data-fitted] {
+  justify-content: space-evenly !important;
+}
+
+/* A resized text box gives the text everything: no padding, tight lines, centred */
+.panel-fit.panel-fill[data-fitted] {
+  padding: 3px !important;
+  line-height: 1.12 !important;
+  text-align: center;
+}
+
+/* Controls, once resized: the text takes the whole box. Tight padding and gaps, the heading on
+   top and the six keys spread over the rest of the height. */
+.controls-info.panel-fill[data-fitted] {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.15 !important;
+}
+.controls-info.panel-fill[data-fitted] h3 {
+  margin: 0 0 2px 0;
+  padding-bottom: 2px;
+  letter-spacing: 1px;
+}
+.controls-info.panel-fill[data-fitted] ul {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.controls-info.panel-fill[data-fitted] li {
+  margin: 0;
+}
+
+/* One line of the Position box. The real text and an invisible copy of the widest possible text
+   share one grid cell, so the line is always as wide as the widest case (the box and its fitted
+   font size never shift as the numbers change) while the real numbers stay compact. */
+.position-line {
+  display: grid;
+}
+.position-line > span {
+  grid-area: 1 / 1;
+}
+.position-ghost {
+  visibility: hidden;
+}
+
+/* A page element placed in the 3D scene (see Css3dPanels.tsx). It sits at the top-left corner of the
+   screen and Css3dPanels gives it a transform that puts it where it belongs, with perspective. It
+   stays hidden until that first transform has been set. The drag handle, minimize button and resize
+   handles do not apply to a panel that stands in the scene. */
+.css3d-panel {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  translate: none !important;
+  transform-origin: 0 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  z-index: 900 !important;
+  visibility: hidden;
+  will-change: transform;
+}
+.css3d-panel > .panel-chrome,
+.css3d-panel > .panel-resize {
+  display: none !important;
 }

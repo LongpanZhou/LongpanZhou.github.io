@@ -13,6 +13,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { LANGUAGES, translateSegments } from './translate';
 import { averagePageSeconds, recordPageTime } from './pageTimes';
 import { extractBlocks, type Block } from './layout';
+import { resolveTarget, bareForm } from './pdfTarget';
 import './pdf.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -24,51 +25,6 @@ const CMAP_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/cmaps
 const STANDARD_FONTS_URL = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/standard_fonts/`;
 
 type ViewMode = 'original' | 'translate';
-
-/**
- * Turn the browser path into the URL of a PDF to load.
- *
- *   /arxiv.org/pdf/1706.03762            -> https://arxiv.org/pdf/1706.03762
- *   /https://arxiv.org/pdf/1706.03762    -> https://arxiv.org/pdf/1706.03762
- *   /http://example.com/a.pdf            -> http://example.com/a.pdf
- *
- * Returns null when the path does not look like a host/URL.
- */
-function resolveTarget(pathname: string, search: string): string | null {
-  let raw = pathname.replace(/^\/+/, '');
-  try {
-    raw = decodeURIComponent(raw);
-  } catch {
-    /* keep raw as-is if it is not valid percent-encoding */
-  }
-  if (!raw) return null;
-
-  // Browsers collapse "https://" in the path to "https:/" — restore it.
-  raw = raw.replace(/^(https?):\/+/i, '$1://');
-
-  let url: string;
-  if (/^https?:\/\//i.test(raw)) {
-    url = raw;
-  } else {
-    const firstSegment = raw.split('/')[0];
-    if (!firstSegment.includes('.') || /\s/.test(firstSegment)) return null;
-    url = 'https://' + raw;
-  }
-
-  if (search && search.length > 1) url += search;
-
-  try {
-    new URL(url);
-    return url;
-  } catch {
-    return null;
-  }
-}
-
-/** Bare `host/path` form used in the address box and for share links. */
-function bareForm(url: string): string {
-  return url.replace(/^https?:\/\//i, '');
-}
 
 // ---------------------------------------------------------------------------
 

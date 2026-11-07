@@ -7,6 +7,7 @@ export interface Project {
   url: string;
   featured: boolean;
   demoUrl?: string;
+  pushedAt?: string; // last push, used to order repos with the same star count
 }
 
 export const projects: Project[] = [

@@ -3,13 +3,13 @@
 // One unauthenticated call to the GitHub REST API returns every public repo
 // (name, description, language, stars, topics), so the whole page costs a
 // single request. The trimmed result is cached in localStorage for a few
-// hours to stay well under the 60/hour unauthenticated rate limit and to
+// minutes to stay well under the 60/hour unauthenticated rate limit and to
 // render instantly on repeat visits. If the call fails, callers fall back to
 // the curated list in projects.ts.
 
 const GH_USER = 'LongpanZhou';
 const CACHE_KEY = 'gh-repos-v1';
-const TTL_MS = 6 * 60 * 60 * 1000;
+const TTL_MS = 10 * 60 * 1000; // short, so new repos and stars show up soon
 
 export interface GitHubRepo {
   name: string;

@@ -31,3 +31,31 @@ dist-ssr
 src/SummonersRift/*
 !src/SummonersRift/*.tsx
 !src/SummonersRift/*.css
+!src/SummonersRift/*.ts
+# The layout saved from the editor: riftLayoutDefault.ts imports it, so the build needs it
+!src/SummonersRift/defaultLayout.json
+
+# League of Legends game assets (owned by Riot). Local testing only: never commit or deploy these.
+public/models/rift/turrets.glb
+public/models/rift/nexus.glb
+public/models/rift/gromp_mini.glb
+public/models/rift/blue_sentinel.glb
+public/models/rift/red_brambleback.glb
+public/models/rift/gromp.glb
+public/models/rift/krug.glb
+public/models/rift/murk_wolf.glb
+public/models/rift/scuttle_crab.glb
+public/models/rift/voidgrubs.glb
+public/models/rift/baron_nashor.glb
+public/models/rift/dragon_fire.glb
+public/models/rift/dragon_air.glb
+public/models/rift/dragon_chemtech.glb
+public/models/rift/dragon_earth.glb
+public/models/rift/dragon_elder.glb
+public/models/rift/dragon_hextech.glb
+public/models/rift/dragon_water.glb
+public/models/rift/rift_herald.glb
+
+# The local model library (layout editor inventory) lives beside the source tree,
+# never in the repository or the build.
+/modelviewer/

@@ -1,0 +1,589 @@
+/* DrawFrame overlay: agents draw wireframe boxes over marked targets, then fade out.
+   The overlay sits above the children but never takes pointer events. */
+
+.draw-frame {
+  position: relative;
+}
+
+.draw-frame__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: Consolas, ui-monospace, "Courier New", monospace;
+}
+
+.draw-frame__overlay *,
+.draw-frame__overlay *::before,
+.draw-frame__overlay *::after {
+  box-sizing: border-box;
+}
+
+/* Wireframe box drawn around a target */
+.draw-frame__box {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  border: 1px solid rgba(10, 200, 255, 0.9);
+  background: none;
+  box-shadow: 0 0 14px rgba(10, 200, 255, 0.25);
+  transition: border-color 0.4s, background-color 0.4s, box-shadow 0.4s;
+}
+
+.draw-frame__box.is-locked {
+  border-color: rgba(200, 170, 110, 0.95);
+  background: none;
+  box-shadow: 0 0 18px rgba(200, 170, 110, 0.35);
+}
+
+.draw-frame__corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #0ac8ff;
+  transition: border-color 0.4s;
+}
+
+.draw-frame__corner--tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.draw-frame__corner--tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.draw-frame__corner--bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.draw-frame__corner--br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+.draw-frame__box.is-locked .draw-frame__corner {
+  border-color: #c8aa6e;
+}
+
+.draw-frame__label {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #0ac8ff;
+  white-space: nowrap;
+  transition: color 0.4s;
+}
+
+.draw-frame__box.is-locked .draw-frame__label {
+  color: #c8aa6e;
+}
+
+/* Agent cursor with name tag */
+.draw-frame__cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 22px;
+  opacity: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  filter: drop-shadow(0 0 6px rgba(10, 200, 255, 0.8));
+}
+
+.draw-frame__tag {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  background: #0ac8ff;
+  color: #010a13;
+}
+
+/* Map object kinds: minions get small corners, towers the default, nexus a large frame */
+.draw-frame__box--minion .draw-frame__corner {
+  width: 8px;
+  height: 8px;
+}
+
+.draw-frame__box--nexus .draw-frame__corner {
+  width: 18px;
+  height: 18px;
+}
+
+.draw-frame__box--nexus {
+  outline: 1px solid rgba(200, 170, 110, 0.4);
+  outline-offset: 4px;
+}
+
+@media (max-width: 600px) {
+  .draw-frame__label {
+    font-size: 9px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   HudDraw (home page): one fixed overlay over the viewport. Boxes are placed at
+   viewport coordinates; the drawing itself is transform/opacity only.
+   --------------------------------------------------------------------------- */
+
+.hud-draw {
+  position: fixed;
+  inset: 0;
+  z-index: 5000; /* above every HUD panel (the profile panel is 4000) so agent cursors are never hidden */
+  pointer-events: none;
+  overflow: hidden;
+  font-family: Consolas, ui-monospace, "Courier New", monospace;
+}
+
+.hud-draw__box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+.hud-draw__box.is-locked {
+  box-shadow: 0 0 18px rgba(200, 170, 110, 0.3);
+  transition: box-shadow 0.4s;
+}
+
+.hud-draw__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  background: none;
+}
+
+.hud-draw__box.is-locked .hud-draw__fill {
+  background: none;
+}
+
+.hud-draw__edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #0ac8ff;
+  box-shadow: 0 0 6px rgba(10, 200, 255, 0.6);
+  transform-origin: 0 0;
+  transition: background-color 0.4s;
+}
+
+.hud-draw__edge--top,
+.hud-draw__edge--bottom {
+  width: 100%;
+  height: 1px;
+}
+
+.hud-draw__edge--left,
+.hud-draw__edge--right {
+  width: 1px;
+  height: 100%;
+}
+
+.hud-draw__box.is-locked .hud-draw__edge {
+  background: #c8aa6e;
+  box-shadow: 0 0 6px rgba(200, 170, 110, 0.6);
+}
+
+.hud-draw__corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #0ac8ff;
+  opacity: 0;
+  transition: opacity 0.2s, border-color 0.4s;
+}
+
+.hud-draw__corner--tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.hud-draw__corner--tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.hud-draw__corner--bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.hud-draw__corner--br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+.hud-draw__box.is-on .hud-draw__corner {
+  opacity: 1;
+}
+
+.hud-draw__box.is-locked .hud-draw__corner {
+  border-color: #c8aa6e;
+}
+
+.hud-draw__label {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #c8aa6e;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.hud-draw__box.is-locked .hud-draw__label {
+  opacity: 1;
+}
+
+.hud-draw__cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 22px;
+  opacity: 0;
+  will-change: transform;
+  filter: drop-shadow(0 0 6px rgba(10, 200, 255, 0.8));
+}
+
+.hud-draw__tag {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  background: #0ac8ff;
+  color: #010a13;
+}
+
+/* Typing and fade-in for the HUD text. HudDrawer adds and removes these classes:
+   hud-pending hides an item until its box locks (or its typing starts). */
+.hud-pending {
+  visibility: hidden;
+}
+
+/* While the HUD is being drawn the html element carries hud-booting. Every panel stays
+   invisible from the first paint until its box locks around it, so nothing shows ahead
+   of the drawing. !important beats the panels' own inline styles. */
+html.hud-booting [data-hud-draw]:not(.hud-revealed) {
+  opacity: 0 !important;
+}
+
+html.hud-booting [data-hud-draw].hud-revealed {
+  animation: hud-panel-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes hud-panel-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.hud-fade {
+  /* backwards: the start keyframe applies during the delay, and nothing is
+     forced after the end, so inline transforms (button hover) keep working */
+  animation: hud-fade-in 0.5s ease-out backwards;
+}
+
+/* Opacity only: the boxes are measured before the fade, so nothing may move. */
+@keyframes hud-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.hud-draw__label.hud-typing::after {
+  content: "_";
+  margin-left: 1px;
+  animation: hud-caret 0.5s steps(1) infinite;
+}
+
+@keyframes hud-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* One light flash across each box as it locks */
+.hud-draw__box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(200, 170, 110, 0.22);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hud-draw__box.is-locked::after {
+  animation: hud-flash 0.8s ease-out;
+}
+
+@keyframes hud-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .hud-draw__label {
+    font-size: 9px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   HudDraw extras: guides, scan line, ticks, lock burst, inner boxes.
+   All transform/opacity (the scan line moves a 2px element), so they stay cheap.
+   --------------------------------------------------------------------------- */
+
+/* Dashed crosshair through each agent cursor */
+.hud-draw__guide {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.hud-draw__guide--h {
+  left: -3000px;
+  top: 0;
+  width: 6000px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, rgba(10, 200, 255, 0.55) 0 6px, transparent 6px 12px);
+}
+
+.hud-draw__guide--v {
+  top: -3000px;
+  left: 0;
+  width: 1px;
+  height: 6000px;
+  background: repeating-linear-gradient(180deg, rgba(10, 200, 255, 0.55) 0 6px, transparent 6px 12px);
+}
+
+/* Scan line sweeping through the drawn area, once while drawing and once on the lock */
+.hud-draw__fill::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, #0ac8ff, transparent);
+  box-shadow: 0 0 8px rgba(10, 200, 255, 0.8);
+}
+
+.hud-draw__box.is-on .hud-draw__fill::before {
+  animation: hud-scan 0.9s ease-in-out;
+}
+
+.hud-draw__box.is-locked .hud-draw__fill::before {
+  background: linear-gradient(90deg, transparent, #c8aa6e, transparent);
+  box-shadow: 0 0 8px rgba(200, 170, 110, 0.8);
+  animation: hud-scan 0.7s ease-out;
+}
+
+@keyframes hud-scan {
+  0% { top: 0; opacity: 0; }
+  15%, 85% { opacity: 0.9; }
+  100% { top: calc(100% - 2px); opacity: 0; }
+}
+
+/* Corners pop outward as the box locks */
+.hud-draw__corner--tl { transform-origin: 0 0; }
+.hud-draw__corner--tr { transform-origin: 100% 0; }
+.hud-draw__corner--bl { transform-origin: 0 100%; }
+.hud-draw__corner--br { transform-origin: 100% 100%; }
+
+.hud-draw__box.is-locked .hud-draw__corner {
+  animation: hud-corner-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes hud-corner-pop {
+  45% { transform: scale(2); }
+}
+
+/* Ring bursting from the final corner on lock */
+.hud-draw__ping {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #c8aa6e;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.hud-draw__box.is-locked .hud-draw__ping {
+  animation: hud-ping 0.8s ease-out;
+}
+
+@keyframes hud-ping {
+  from { opacity: 0.9; transform: scale(0.2); }
+  to { opacity: 0; transform: scale(2.8); }
+}
+
+/* Inner boxes (drawn inside a panel's box): lighter, with smaller corners and label */
+.hud-draw__box.is-inner .hud-draw__corner {
+  width: 6px;
+  height: 6px;
+  border-width: 1px;
+}
+
+.hud-draw__box.is-inner .hud-draw__label {
+  top: 3px;
+  left: 6px;
+  font-size: 8px;
+}
+
+.hud-draw__box.is-inner .hud-draw__edge {
+  opacity: 0.75;
+}
+
+/* A panel that was held hidden stays invisible, with its own animations paused, until
+   its box locks. Removing the hold restarts those animations, so it fades in cleanly. */
+[data-hud-draw].hud-hold {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+/* Panels brighten as they appear, then settle */
+[data-hud-draw].hud-revealed {
+  animation: hud-panel-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes hud-panel-in {
+  from { opacity: 0; filter: brightness(2.4); }
+}
+
+/* Inner boxes are drawn and locked like the others, then fade away so only the big
+   panel boxes stay on screen. */
+.hud-draw__box.is-inner.is-locked {
+  animation: hud-inner-out 0.7s ease-in 1.2s forwards;
+}
+
+@keyframes hud-inner-out {
+  to { opacity: 0; }
+}
+
+
+/* No text selection while a panel is being dragged */
+html.hud-dragging,
+html.hud-dragging * {
+  user-select: none !important;
+}
+
+/* A box for a panel that came back appears at once: no scan line, corner pop, ping or flash,
+   and no inner boxes. */
+.hud-draw__box.is-instant,
+.hud-draw__box.is-instant *,
+.hud-draw__box.is-instant::after {
+  animation: none !important;
+}
+
+.hud-draw__box.is-inner.is-instant {
+  display: none;
+}
+
+/* Calm by default. Once a box has drawn and locked, it settles into a faint hairline: no glow,
+   no fill, dim edges and corners. The fades start after the lock animation has played. */
+.hud-draw__box.is-locked {
+  box-shadow: none;
+}
+
+.hud-draw__box.is-locked .hud-draw__edge {
+  opacity: 0.35;
+  box-shadow: none;
+  transition: background-color 0.4s, opacity 0.9s ease 1.4s;
+}
+
+.hud-draw__box.is-locked .hud-draw__fill {
+  opacity: 0;
+  transition: opacity 0.9s ease 1.4s;
+}
+
+.hud-draw__box.is-locked .hud-draw__corner {
+  opacity: 0.45;
+  transition: opacity 0.9s ease 1.4s, border-color 0.4s;
+}
+
+/* A box that appears for a panel coming back is calm at once */
+.hud-draw__box.is-instant.is-locked .hud-draw__edge,
+.hud-draw__box.is-instant.is-locked .hud-draw__fill,
+.hud-draw__box.is-instant.is-locked .hud-draw__corner {
+  transition: none;
+}
+
+/* Marked elements stay hidden until an agent has drawn their box, then fade in. The class is
+   removed when the drawing is over, so nothing is left hidden. */
+.draw-frame--pending [data-draw],
+.draw-frame--pending [data-draw-type] {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.draw-frame--pending [data-draw].draw-revealed,
+.draw-frame--pending [data-draw-type].draw-revealed {
+  opacity: 1;
+}
+
+/* Typing caret: a flashing line with the typing agent's name, at the end of the typed text */
+.draw-frame__caret {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  background: #0ac8ff;
+  box-shadow: 0 0 6px rgba(10, 200, 255, 0.9);
+  animation: draw-frame-caret 0.55s steps(1) infinite;
+  will-change: transform;
+}
+.draw-frame__caret-tag {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  padding: 2px 5px;
+  font: bold 9px/1 Consolas, ui-monospace, "Courier New", monospace;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  background: #0ac8ff;
+  color: #010a13;
+}
+@keyframes draw-frame-caret {
+  0%, 100% { background: #0ac8ff; }
+  50% { background: transparent; box-shadow: none; }
+}
+
+/* Typing agent: a flashing caret at the end of the text, the arrow cursor and the agent's name */
+.hud-draw__typer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  will-change: transform;
+  --typer-h: 16px;
+}
+.hud-draw__typer::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: var(--typer-h);
+  background: #0ac8ff;
+  box-shadow: 0 0 6px rgba(10, 200, 255, 0.9);
+  animation: hud-typer-blink 0.5s steps(1) infinite;
+}
+.hud-draw__typer-arrow {
+  position: absolute;
+  left: 1px;
+  top: calc(var(--typer-h) - 3px);
+  filter: drop-shadow(0 0 4px rgba(10, 200, 255, 0.8));
+}
+.hud-draw__typer-tag {
+  position: absolute;
+  left: 11px;
+  top: calc(var(--typer-h) + 4px);
+  padding: 2px 5px;
+  font: bold 9px/1 Consolas, ui-monospace, "Courier New", monospace;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  background: #0ac8ff;
+  color: #010a13;
+}
+@keyframes hud-typer-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}

@@ -1,0 +1,64 @@
+/* Lock-on label shown over a clicked Rift unit. Brackets use the unit's team colour. */
+
+.rift-lock {
+  position: relative;
+  min-width: 150px;
+  padding: 10px 14px;
+  font-family: Consolas, ui-monospace, "Courier New", monospace;
+  white-space: nowrap;
+  color: #f0e6d2;
+  background: rgba(1, 10, 19, 0.85);
+  border: 1px solid var(--lock-color);
+  box-shadow: 0 0 14px var(--lock-color);
+  pointer-events: none;
+  animation: rift-lock-in 0.35s ease-out;
+}
+
+.rift-lock::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  background:
+    linear-gradient(var(--lock-color), var(--lock-color)) top left / 14px 2px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) top left / 2px 14px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) top right / 14px 2px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) top right / 2px 14px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) bottom left / 14px 2px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) bottom left / 2px 14px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) bottom right / 14px 2px no-repeat,
+    linear-gradient(var(--lock-color), var(--lock-color)) bottom right / 2px 14px no-repeat;
+  pointer-events: none;
+}
+
+.rift-lock__title {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--lock-color);
+}
+
+.rift-lock__sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #a09b8c;
+}
+
+@keyframes rift-lock-in {
+  from {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rift-lock {
+    animation: none;
+  }
+}

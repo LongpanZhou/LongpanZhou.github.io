@@ -15,3 +15,17 @@ canvas {
     right: 0px;
     bottom: 0px;
 }
+
+/* Home page: text is not selectable. Form fields stay selectable so names and the layout export
+   can still be typed and copied. */
+body.home-no-select,
+body.home-no-select * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body.home-no-select input,
+body.home-no-select textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}

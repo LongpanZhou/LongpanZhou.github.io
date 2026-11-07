@@ -1,0 +1,38 @@
+/* Shift + drag selection frame. Positioned in viewport coordinates by MarqueeDraw.tsx. */
+
+.marquee-draw {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border: 1px solid #0ac8ff;
+  background: rgba(10, 200, 255, 0.06);
+  box-shadow: 0 0 14px rgba(10, 200, 255, 0.25), inset 0 0 22px rgba(10, 200, 255, 0.06);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9500;
+  transition: opacity 0.25s ease;
+}
+
+.marquee-draw.is-active {
+  opacity: 1;
+}
+
+.marquee-draw.is-fading {
+  opacity: 0;
+}
+
+.marquee-draw__label {
+  position: absolute;
+  left: 6px;
+  bottom: -20px;
+  padding: 2px 6px;
+  font-family: Consolas, ui-monospace, "Courier New", monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  color: #c8aa6e;
+  background: #010a13;
+  border: 1px solid rgba(200, 170, 110, 0.5);
+}

@@ -21,12 +21,12 @@ function Nav({ transparent = false }: NavProps) {
 
   return (
     <>
-      <nav className={`hex-nav ${transparent ? 'hex-nav--transparent' : 'hex-nav--solid'}`}>
-        <NavLink to="/" className="hex-nav__brand" onClick={() => setMenuOpen(false)}>
+      <nav className={`hex-nav ${transparent ? 'hex-nav--transparent' : 'hex-nav--solid'}`} data-hud-draw="Nav bar">
+        <NavLink to="/" className="hex-nav__brand" onClick={() => setMenuOpen(false)} data-hud-type>
           Longpan Zhou
         </NavLink>
 
-        <ul className="hex-nav__links">
+        <ul className="hex-nav__links" data-hud-draw="Menu">
           {navItems.map((item) => (
             <li key={item.to}>
               <NavLink to={item.to} className={linkClass} end={item.to === '/'}>
@@ -35,6 +35,11 @@ function Nav({ transparent = false }: NavProps) {
             </li>
           ))}
         </ul>
+
+        <span className="hex-nav__status" aria-hidden="true" data-hud-draw="Status">
+          <span className="hex-nav__status-dot" />
+          ONLINE
+        </span>
 
         <button
           className={`hex-nav__hamburger${menuOpen ? ' hex-nav__hamburger--open' : ''}`}

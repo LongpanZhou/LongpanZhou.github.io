@@ -1,6 +1,13 @@
 /* Hextech Theme - CSS Custom Properties */
 :root {
   --hex-dark-blue: #0A1428;
+  /* The look of every HUD box (music, controls, profile, projects, READMEs, blog, layout editor):
+     the look the minimized boxes already had. The Position box is the exception and keeps its own.
+     The background is flat, with no gradient and no blur, so it looks the same on every box. */
+  --hud-panel-bg: rgba(1, 10, 19, 0.92);
+  --hud-panel-border: 2px solid #c8aa6e;
+  --hud-panel-radius: 8px;
+  --hud-panel-shadow: 0 0 20px rgba(200, 170, 110, 0.3);
   --hex-gold: #C8AA6E;
   --hex-cyan: #0AC8FF;
   --hex-cream: #F0E6D2;
@@ -34,4 +41,19 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--hex-gold);
+}
+
+/* The one class every HUD box shares (music, controls, profile, projects, READMEs, blog, layout
+   editor), so they cannot drift apart: background, border, corners, glow, text colour and font.
+   Each box adds only what is its own (position, size, padding). The Position box does not use it. */
+.hud-box {
+  box-sizing: border-box;
+  background: var(--hud-panel-bg);
+  border: var(--hud-panel-border);
+  border-radius: var(--hud-panel-radius);
+  box-shadow: var(--hud-panel-shadow);
+  color: #f0e6d2;
+  font-family: "Beaufort for LOL", "Times New Roman", serif;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }

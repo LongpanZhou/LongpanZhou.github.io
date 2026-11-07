@@ -1,4 +1,5 @@
-import { Suspense, useRef, useMemo, useState, useEffect, useCallback } from 'react'
+import { lazy, Suspense, useRef, useMemo, useState, useEffect, useLayoutEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Grid, useGLTF, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
@@ -8,6 +9,25 @@ import Linkedin from '../profile/icons/linkedin.svg'
 import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
 import { isMobile } from '../utils/isMobile'
+import RiftModels from './RiftModels'
+import { createCameraShake } from './cameraShake'
+import PanelChrome, { DragButton } from './PanelChrome'
+import PositionBox from './PositionBox'
+import LayoutEditorUI from './LayoutEditorUI'
+import { editState } from './riftEdit'
+import { HudDraw } from '../components/DrawFrame'
+import ProjectsHud, { useReadme } from './ProjectsHud'
+import BlogHud from './BlogHud'
+import ArxivHud from './ArxivHud'
+import Css3dPanels from './Css3dPanels'
+import type { Css3dPanel } from './Css3dPanels'
+import { ARXIV_LAYOUT, idleTranslation, initialArxivView } from './arxivLayout'
+import type { ArxivCommands, ArxivMode, ArxivTranslation, ArxivViewState } from './arxivLayout'
+import { resolveTarget } from '../pdf/pdfTarget'
+
+// The papers of the arXiv view are drawn in the 3D scene. pdf.js is heavy, so they load on demand.
+const ArxivPapers = lazy(() => import('./ArxivPapers'))
+import { useProjects } from '../projects/useProjects'
 
 const PLAYLIST = [
   {
@@ -35,8 +55,23 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+// Text inside a resizable HUD box scales with the box instead of being pushed into a wrap.
+// PanelChrome keeps --hud-scale in sync with the panel's width.
+// The box's content is zoomed as a whole (see .panel-fit in the CSS), so text, buttons and gaps
+// inside scale together. Only the box's own padding needs the scale applied by hand.
+const hud = (px: number) => `${px}px`
+const hudPad = (px: number) => `calc(${px}px * var(--hud-scale, 1))`
+
 // Music Player Component
-function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
+function MusicPlayer({
+  onUserInteraction,
+  view,
+  onFocusBox,
+}: {
+  onUserInteraction?: boolean
+  view: MapView
+  onFocusBox?: () => void // in the arXiv view, a click on the player (not on its controls) focuses it
+}) {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -46,6 +81,9 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
   const hasStartedRef = useRef(false)
 
   const currentTrack = PLAYLIST[currentTrackIndex]
+  // In the arXiv view the player stands in the 3D scene (see Css3dPanels). No HUD box is drawn around
+  // it there: the outline would not follow the panel's perspective.
+  const music3d = view === 'arxiv'
 
   // Auto-play on ANY user interaction
   useEffect(() => {
@@ -175,22 +213,35 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
   }, [])
 
   return (
-    <div style={{
+    <div id="css3d-music" className={`hud-box${music3d ? ' css3d-panel' : ''}`} style={{
       position: 'fixed',
       bottom: '20px',
-      right: '20px',
+      left: '20px',
       zIndex: 1000,
-      background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.9) 100%)',
-      border: '2px solid #C8AA6E',
-      borderRadius: '8px',
-      padding: '12px',
+      padding: hudPad(12),
       width: '240px',
-      backdropFilter: 'blur(10px)',
-      boxShadow: '0 0 20px rgba(200, 170, 110, 0.3)',
-      fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
-      color: '#F0E6D2'
-    }}>
-      <audio 
+      overflow: 'auto'
+    }}
+    onClick={
+      music3d
+        ? (e) => {
+            if (!(e.target as Element).closest('button, input, select, textarea, a, label')) onFocusBox?.()
+          }
+        : undefined
+    }
+    {...(music3d ? {} : { 'data-hud-draw': 'Music player', 'data-hud-always': true })}>
+      {/* Each view keeps its own position, size and collapsed state for the player. The chrome is rebuilt
+          when the view changes (the key), while the player and its audio keep playing. Both start in
+          the bottom-left corner: the ids are new, so no position saved for the old corner applies. */}
+      <PanelChrome
+        key={view}
+        id={`music-${view}`}
+        label="Music"
+        resizable
+        minWidth={130}
+        minHeight={90}
+      />
+      <audio
         ref={audioRef} 
         src={currentTrack.audioSrc}
         loop={false}
@@ -202,26 +253,26 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
       {/* Track Info */}
       <div style={{ marginBottom: '8px', textAlign: 'center' }}>
         <div style={{ 
-          fontSize: '13px', 
+          fontSize: hud(13),
           fontWeight: 'bold',
           color: '#C8AA6E',
           marginBottom: '2px',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis'
-        }}>
+        }} data-hud-type>
           {currentTrack.title}
         </div>
         <div style={{ 
-          fontSize: '11px',
+          fontSize: hud(11),
           color: '#d4d4d4'
-        }}>
+        }} data-hud-type>
           {currentTrack.artist}
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div style={{ marginBottom: '8px' }}>
+      <div style={{ marginBottom: '8px' }} {...(music3d ? {} : { 'data-hud-draw': 'Progress', 'data-hud-always': true })}>
         <input
           type="range"
           min="0"
@@ -238,7 +289,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between',
-          fontSize: '9px',
+          fontSize: hud(9),
           color: '#d4d4d4',
           marginTop: '2px'
         }}>
@@ -254,18 +305,19 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
         alignItems: 'center',
         gap: '10px',
         marginBottom: '8px'
-      }}>
+      }} {...(music3d ? {} : { 'data-hud-draw': 'Playback', 'data-hud-always': true })}>
         <button
           onClick={prevTrack}
+          data-hud-fade
           style={{
             background: 'transparent',
             border: '1px solid #C8AA6E',
             color: '#C8AA6E',
-            width: '28px',
-            height: '28px',
+            width: hud(28),
+            height: hud(28),
             borderRadius: '50%',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: hud(12),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -287,15 +339,16 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
         
         <button
           onClick={togglePlay}
+          data-hud-fade
           style={{
             background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
             border: '2px solid #F0E6D2',
             color: '#0A1428',
-            width: '36px',
-            height: '36px',
+            width: hud(36),
+            height: hud(36),
             borderRadius: '50%',
             cursor: 'pointer',
-            fontSize: '16px',
+            fontSize: hud(16),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -316,15 +369,16 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
 
         <button
           onClick={nextTrack}
+          data-hud-fade
           style={{
             background: 'transparent',
             border: '1px solid #C8AA6E',
             color: '#C8AA6E',
-            width: '28px',
-            height: '28px',
+            width: hud(28),
+            height: hud(28),
             borderRadius: '50%',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: hud(12),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -351,7 +405,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
         alignItems: 'center',
         gap: '6px'
       }}>
-        <span style={{ fontSize: '10px' }}>🔊</span>
+        <span style={{ fontSize: hud(10) }}>🔊</span>
         <input
           type="range"
           min="0"
@@ -366,7 +420,7 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
             accentColor: '#C8AA6E'
           }}
         />
-        <span style={{ fontSize: '9px', minWidth: '28px', textAlign: 'right' }}>
+        <span style={{ fontSize: hud(9), minWidth: hud(28), textAlign: 'right' }}>
           {Math.round(volume * 100)}%
         </span>
       </div>
@@ -375,17 +429,65 @@ function MusicPlayer({ onUserInteraction }: { onUserInteraction?: boolean }) {
 }
 
 // WASD Camera Controller Component with Auto-Movement
-function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, startCinema, onNearHome }: {
+// Where the camera sits for the Projects view: high above the map, looking straight down
+const PROJECTS_POSITION = new THREE.Vector3(-67.85, 170, 70) // x/z are near the map centre; a higher z moves the map up on screen
+const PROJECTS_YAW_DEG = 0
+const PROJECTS_PITCH_DEG = -90
+
+// The Blog and arXiv views: low over the map, looking across it. Blog is the camera as the Position
+// box showed it: x -28, y 7.5, z 30, yaw -44, pitch -18.5. arXiv is a level camera (pitch 0) at
+// x -110, y 12, z 55, yaw -53, standing exactly in front of the two papers. Dragging looks around
+// from there and scrolling moves along the view direction; both ease back, like the Projects view.
+// The Position box reads camera.rotation in Euler order XYZ, but the camera is kept level: it is
+// turned about the vertical axis first and then tilted (order YXZ), and the two orders give
+// different yaw and pitch numbers for the same view (a yaw of -50 and a pitch of -20 on the box
+// are really about -51.7 and -12.7 for a level camera). This turns the numbers read off the box
+// back into the level pose, so the camera ends up looking exactly the way it did when they were
+// read. Valid for a yaw between -90 and 90 degrees.
+function levelPoseFromReadout(yawDeg: number, pitchDeg: number) {
+  const a = Math.sin(THREE.MathUtils.degToRad(yawDeg))
+  const b = Math.tan(THREE.MathUtils.degToRad(pitchDeg))
+  const c = Math.sqrt((1 - a * a) / (1 + a * a * b * b)) // cosine of the level yaw
+  return {
+    yaw: Math.atan2(a * Math.sqrt(1 + b * b * c * c), c),
+    pitch: Math.atan(b * c),
+  }
+}
+const BLOG_VIEW = { position: new THREE.Vector3(-28, 7.5, 30), pose: levelPoseFromReadout(-44, -18.5) }
+const ARXIV_VIEW = { position: new THREE.Vector3(-110, 12, 55), pose: { yaw: THREE.MathUtils.degToRad(-53), pitch: 0 } }
+
+type MapView = 'home' | 'projects' | 'blog' | 'arxiv'
+
+// What stands in the arXiv scene besides the papers: the controls right under them, and the music
+// player to their left (turned a little toward them). Positions are in world units from the middle
+// of the papers; scale is world units per CSS pixel (0.02 makes the 560 px controls 11 units wide).
+const ARXIV_PANELS: Css3dPanel[] = [
+  { id: 'css3d-arxiv-bar', x: 0, y: -9.3, scale: 0.02 },
+  { id: 'css3d-music', x: -8.8, y: -9.9, scale: 0.02, yawOffset: 0.28 },
+]
+// Where the camera goes to look at a panel when it is clicked: in front of it, close enough that it
+// fills a good part of the screen
+const ARXIV_SPOTS = {
+  bar: { x: ARXIV_PANELS[0].x, y: ARXIV_PANELS[0].y, d: 13.5, yaw: ARXIV_PANELS[0].yawOffset ?? 0 },
+  // The music player is turned toward the middle, so the camera moves round to look at it straight on
+  music: { x: ARXIV_PANELS[1].x, y: ARXIV_PANELS[1].y, d: 11.5, yaw: ARXIV_PANELS[1].yawOffset ?? 0 },
+}
+
+function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, projectsMode, freeView, arxivCompare, startCinema, onNearHome }: {
   onPositionChange: (pos: { x: number, y: number, z: number }) => void,
   onRotationChange: (rot: { yaw: number, pitch: number }) => void,
   controlsRef: React.MutableRefObject<any>,
   goingHome: boolean,
+  projectsMode: boolean, // any view other than home: the camera holds that view's pose
+  freeView: 'blog' | 'arxiv' | null, // a low view (otherwise the Projects view, when projectsMode is set)
+  arxivCompare: React.MutableRefObject<ArxivViewState>, // the arXiv comparison and focus, eased here
   startCinema: boolean,
   onNearHome: (near: boolean) => void
 }) {
-  const { camera } = useThree()
+  const { camera, gl } = useThree()
   const keysPressed = useRef<Set<string>>(new Set())
   const moveSpeed = 0.5
+  const shake = useMemo(() => createCameraShake(), [])
   
   // Auto-movement state
   const [autoMove, setAutoMove] = useState(false)
@@ -414,6 +516,72 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   const homePosition = useMemo(() => new THREE.Vector3(-61.2, 2.7, 49.0), [])
   const homeYawRad = useMemo(() => THREE.MathUtils.degToRad(150), [])
   const homePitchRad = useMemo(() => THREE.MathUtils.degToRad(-15), [])
+  const projectsQuat = useMemo(
+    () =>
+      new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(THREE.MathUtils.degToRad(PROJECTS_PITCH_DEG), THREE.MathUtils.degToRad(PROJECTS_YAW_DEG), 0, 'YXZ'),
+      ),
+    [],
+  )
+  // The Projects view can be dragged (tilt) and zoomed with the mouse, then eases back to the
+  // overhead pose once the mouse is released
+  const projState = useRef({ tiltX: 0, tiltZ: 0, zoom: 1, lastInput: 0, dragging: false })
+  const projEuler = useRef(new THREE.Euler())
+  const projRot = useRef(new THREE.Quaternion())
+  const projDesiredQuat = useRef(new THREE.Quaternion())
+  const projDesiredPos = useRef(new THREE.Vector3())
+  useEffect(() => {
+    if (!projectsMode) return
+    const el = gl.domElement
+    const st = projState.current
+    const stopDrag: Array<() => void> = []
+    // Left-drag on the background tilts the view around the middle of the map
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0) return
+      st.dragging = true
+      st.lastInput = performance.now()
+      let lastX = e.clientX
+      let lastY = e.clientY
+      const move = (ev: PointerEvent) => {
+        st.tiltZ = THREE.MathUtils.clamp(st.tiltZ + (ev.clientX - lastX) * 0.004, -1, 1)
+        st.tiltX = THREE.MathUtils.clamp(st.tiltX - (ev.clientY - lastY) * 0.004, -1, 1)
+        lastX = ev.clientX
+        lastY = ev.clientY
+        st.lastInput = performance.now()
+      }
+      const up = () => {
+        st.dragging = false
+        st.lastInput = performance.now()
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', up)
+        window.removeEventListener('pointercancel', up)
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', up)
+      stopDrag.push(up)
+    }
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      st.zoom = THREE.MathUtils.clamp(st.zoom * Math.exp(e.deltaY * 0.001), 0.35, 1.8)
+      st.lastInput = performance.now()
+    }
+    el.addEventListener('pointerdown', onDown)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('pointerdown', onDown)
+      el.removeEventListener('wheel', onWheel)
+      stopDrag.forEach((fn) => fn())
+      st.tiltX = 0
+      st.tiltZ = 0
+      st.zoom = 1
+      st.dragging = false
+    }
+  }, [projectsMode, gl])
+
+  // Set when the camera leaves the Projects view, so the way back home is quick, not cinematic
+  const wasProjects = useRef(false)
+  const fastReturn = useRef(false)
   const lookDistance = 30
   
   // Bounding box corners: (35,60,-40), (-170,60,-40), (-170,60,160), (35,60,160)
@@ -470,6 +638,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
 
   // Throttle state updates to ~10fps instead of 60fps
   const lastUpdateTime = useRef(0)
+  const lastShown = useRef('')
   const UPDATE_INTERVAL = 100 // ms
   const wasNearHome = useRef(false)
 
@@ -479,6 +648,12 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
 
     const yaw = THREE.MathUtils.radToDeg(camera.rotation.y)
     const pitch = THREE.MathUtils.radToDeg(camera.rotation.x)
+
+    // The readout shows one decimal, so only report when a shown number changes. Idle
+    // frames then cost nothing instead of re-rendering the page ten times a second.
+    const shown = [camera.position.x, camera.position.y, camera.position.z, yaw, pitch].map((v) => v.toFixed(1)).join()
+    if (shown === lastShown.current) return
+    lastShown.current = shown
 
     onPositionChange({
       x: camera.position.x,
@@ -506,20 +681,142 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     }
   }
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const now = performance.now()
+
+    if (wasProjects.current && !projectsMode) fastReturn.current = true
+    wasProjects.current = projectsMode
+
+    // Gentle shake while the camera is stale. Runs first so every branch below sees the real position.
+    shake.update(camera, controlsRef.current?.target ?? null, now, goingHome && !projectsMode)
+
+    // Keep the Position readout live in every mode, including idle and mouse orbit.
+    throttledUpdate(now)
+
+    // Projects view: fly to the overhead pose and hold it. The orbit controls are switched off and
+    // the pose is set directly (straight down is where OrbitControls' up vector breaks down). The
+    // user can drag to tilt the view around the middle of the map and scroll to zoom; once the
+    // mouse is idle the tilt and zoom ease away and the camera returns to the overhead pose.
+    if (projectsMode) {
+      if (controlsRef.current) controlsRef.current.enabled = false
+      const dt = Math.min(delta, 0.1)
+      const st = projState.current
+      if (!st.dragging && now - st.lastInput > 700) {
+        const decay = Math.exp(-2.2 * dt)
+        st.tiltX *= decay
+        st.tiltZ *= decay
+        st.zoom = 1 + (st.zoom - 1) * decay
+        if (Math.abs(st.tiltX) < 0.0005) st.tiltX = 0
+        if (Math.abs(st.tiltZ) < 0.0005) st.tiltZ = 0
+        if (Math.abs(st.zoom - 1) < 0.0005) st.zoom = 1
+      }
+      // Ease the arXiv comparison and focus toward what was asked for. The camera follows them
+      // closely while they move.
+      const cmp = arxivCompare.current
+      const rate = 1 - Math.exp(-3.5 * dt)
+      const faTarget = cmp.focusTarget !== 0 ? 1 : 0
+      const comparing = Math.abs(cmp.target - cmp.t) > 0.0005
+      const focusing =
+        Math.abs(faTarget - cmp.fa) > 0.0005 || (cmp.focusTarget !== 0 && Math.abs(cmp.focusTarget - cmp.f) > 0.0005)
+      // Focus on a panel: the same easing, toward the panel's position and distance
+      const paTarget = cmp.panelTarget ? 1 : 0
+      const panelFocusing =
+        Math.abs(paTarget - cmp.pa) > 0.0005 ||
+        (!!cmp.panelTarget &&
+          (Math.abs(cmp.panelTarget.x - cmp.px) > 0.005 ||
+            Math.abs(cmp.panelTarget.y - cmp.py) > 0.005 ||
+            Math.abs(cmp.panelTarget.d - cmp.pd) > 0.005 ||
+            Math.abs(cmp.panelTarget.yaw - cmp.pyaw) > 0.002))
+      cmp.pa = Math.abs(paTarget - cmp.pa) > 0.0005 ? cmp.pa + (paTarget - cmp.pa) * rate : paTarget
+      if (cmp.panelTarget) {
+        cmp.px += (cmp.panelTarget.x - cmp.px) * rate
+        cmp.py += (cmp.panelTarget.y - cmp.py) * rate
+        cmp.pd += (cmp.panelTarget.d - cmp.pd) * rate
+        cmp.pyaw += (cmp.panelTarget.yaw - cmp.pyaw) * rate
+      }
+      cmp.t = comparing ? cmp.t + (cmp.target - cmp.t) * rate : cmp.target
+      cmp.fa = Math.abs(faTarget - cmp.fa) > 0.0005 ? cmp.fa + (faTarget - cmp.fa) * rate : faTarget
+      // The side keeps its value while the focus eases away, so the camera does not swing sideways
+      if (cmp.focusTarget !== 0) cmp.f = Math.abs(cmp.focusTarget - cmp.f) > 0.0005 ? cmp.f + (cmp.focusTarget - cmp.f) * rate : cmp.focusTarget
+      const tilted = st.tiltX !== 0 || st.tiltZ !== 0 || st.zoom !== 1 || comparing || focusing || panelFocusing
+
+      if (freeView) {
+        // A low pose: dragging turns the view a little, scrolling moves along it
+        const fv = freeView === 'arxiv' ? ARXIV_VIEW : BLOG_VIEW
+        projEuler.current.set(
+          fv.pose.pitch - st.tiltX * 0.8,
+          fv.pose.yaw + st.tiltZ * 0.8 + (freeView === 'arxiv' ? cmp.pa * cmp.pyaw : 0),
+          0,
+          'YXZ',
+        )
+        projDesiredQuat.current.setFromEuler(projEuler.current)
+        directionVec.current.set(0, 0, -1).applyQuaternion(projDesiredQuat.current)
+        // The arXiv comparison and focus move the camera in toward the papers, and a focus also
+        // slides it sideways to be in front of the paper that was picked
+        const reach = Math.max(cmp.t, cmp.fa)
+        const dolly = freeView === 'arxiv' ? reach * (ARXIV_LAYOUT.distance - ARXIV_LAYOUT.compareDistance) : 0
+        const slide = freeView === 'arxiv' ? cmp.fa * cmp.f * ((cmp.paperWidth + ARXIV_LAYOUT.gap) / 2) : 0
+        projDesiredPos.current.copy(fv.position).addScaledVector(directionVec.current, -(st.zoom - 1) * 40 + dolly)
+        projDesiredPos.current.addScaledVector(lookTargetVec.current.set(1, 0, 0).applyQuaternion(projDesiredQuat.current), slide)
+        if (freeView === 'arxiv') {
+          projDesiredPos.current.y -= reach * ARXIV_LAYOUT.compareDrop
+          // Focus on a panel: the camera goes to the point straight out from the panel's front, at the
+          // focus distance (the panel may be turned, and the camera turns to match, above). In the
+          // overview's own frame, where f is the way the overview camera looks and r its right, the
+          // front of a panel turned by a is (-cos a) f + (sin a) r.
+          const sy = Math.sin(fv.pose.yaw)
+          const cy = Math.cos(fv.pose.yaw)
+          const along = cmp.pa * (ARXIV_LAYOUT.distance - cmp.pd * Math.cos(cmp.pyaw))
+          const across = cmp.pa * (cmp.px + cmp.pd * Math.sin(cmp.pyaw))
+          projDesiredPos.current.x += -sy * along + cy * across
+          projDesiredPos.current.z += -cy * along - sy * across
+          projDesiredPos.current.y += cmp.pa * cmp.py
+        }
+      } else {
+        // The Projects pose for this tilt and zoom: the overhead camera, turned about the ground
+        // point under it
+        projRot.current.setFromEuler(projEuler.current.set(st.tiltX, 0, st.tiltZ, 'XYZ'))
+        projDesiredPos.current
+          .set(0, PROJECTS_POSITION.y * st.zoom, 0)
+          .applyQuaternion(projRot.current)
+          .add(lookTargetVec.current.set(PROJECTS_POSITION.x, 0, PROJECTS_POSITION.z))
+        projDesiredQuat.current.copy(projRot.current).multiply(projectsQuat)
+      }
+
+      // Slow on the first fly in, close behind the mouse while it is being used
+      const k = 1 - Math.exp(-(tilted ? 10 : 2.2) * dt)
+      // Move the real (unshaken) position and put the shake back on top, so the camera shake keeps
+      // running once the camera has arrived. Pulling the shaken position toward the goal would
+      // cancel the shake. The last few hundredths snap exactly onto the goal.
+      const sway = shake.offset
+      camera.position.sub(sway)
+      if (!tilted && camera.position.distanceToSquared(projDesiredPos.current) < 0.0025) {
+        camera.position.copy(projDesiredPos.current)
+      } else {
+        camera.position.lerp(projDesiredPos.current, k)
+      }
+      camera.position.add(sway)
+      camera.quaternion.slerp(projDesiredQuat.current, k)
+      if (controlsRef.current) {
+        camera.getWorldDirection(lookTargetVec.current)
+        controlsRef.current.target.copy(lookTargetVec.current.multiplyScalar(lookDistance).add(camera.position))
+      }
+      throttledUpdate(now)
+      return
+    }
 
     // Home animation mode - smoothly return to home position
     if (goingHome) {
       if (controlsRef.current) {
-        controlsRef.current.enabled = true
+        controlsRef.current.enabled = !editState.dragging
       }
 
-      camera.position.lerp(homePosition, 0.01)
+      const homeK = fastReturn.current ? 1 - Math.exp(-1.8 * Math.min(delta, 0.1)) : 0.01
+      camera.position.lerp(homePosition, homeK)
 
       tempEuler.current.set(homePitchRad, homeYawRad, 0, 'YXZ')
       tempQuaternion.current.setFromEuler(tempEuler.current)
-      camera.quaternion.slerp(tempQuaternion.current, 0.01)
+      camera.quaternion.slerp(tempQuaternion.current, homeK)
 
       if (controlsRef.current) {
         camera.getWorldDirection(lookTargetVec.current)
@@ -531,6 +828,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
 
       throttledUpdate(now)
       checkNearHome()
+      if (fastReturn.current && camera.position.distanceToSquared(homePosition) < 16) fastReturn.current = false
       return
     }
 
@@ -771,8 +1069,8 @@ useGLTF.preload('/rift-opt.glb')
 function SocialLink({ href, title, icon, alt, mobile, external = false }: {
   href: string, title: string, icon: string, alt: string, mobile: boolean, external?: boolean
 }) {
-  const size = mobile ? '40px' : '50px'
-  const imgSize = mobile ? '18px' : '24px'
+  const size = hud(mobile ? 40 : 50)
+  const imgSize = hud(mobile ? 18 : 24)
   return (
     <a
       href={href}
@@ -787,7 +1085,7 @@ function SocialLink({ href, title, icon, alt, mobile, external = false }: {
         background: 'rgba(200, 170, 110, 0.1)',
         border: '2px solid #C8AA6E',
         color: '#C8AA6E',
-        fontSize: mobile ? '18px' : '24px',
+        fontSize: mobile ? hud(18) : hud(24),
         transition: 'all 0.3s ease',
         textDecoration: 'none',
         clipPath: 'polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px)',
@@ -819,11 +1117,40 @@ function SummonersRift() {
   // loading screen are on screen and interactive before the GLB parse (which
   // blocks the main thread) begins.
   const [canvasMounted, setCanvasMounted] = useState(false)
+  // Order: loading screen, then the rift finishes loading, then the HUD draws. Every HUD
+  // panel stays hidden until its box is drawn, so no panel background shows during loading.
+  const [drawn, setDrawn] = useState(false)
+  // Hide every HUD panel from before the first paint until its box is drawn. Layout effect,
+  // so there is no frame where the panels show first. Lifted when drawing ends.
+  useLayoutEffect(() => {
+    if (drawn) return
+    document.documentElement.classList.add('hud-booting')
+    return () => document.documentElement.classList.remove('hud-booting')
+  }, [drawn])
+  useEffect(() => {
+    // Safety net, counted from when the rift is ready: never leave the HUD hidden if the
+    // drawing cannot report back
+    if (!isReady) return
+    const timer = window.setTimeout(() => setDrawn(true), 8000)
+    return () => window.clearTimeout(timer)
+  }, [isReady])
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
   const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0 })
   const [goingHome, setGoingHome] = useState(true)
   const [startCinema, setStartCinema] = useState(false)
   const [showCenterPanel, setShowCenterPanel] = useState(false)
+  // Set by the Profile button, so the profile panel can be reopened without moving the camera
+  const [profileOpen, setProfileOpen] = useState(false)
+  // /projects is the same map seen from above, with the README and every repo drawn over it
+  const { pathname, search } = useLocation()
+  const projectsView = pathname === '/projects'
+  const blogView = pathname === '/blog'
+  // Projects and Blog are the same map seen from different camera poses
+  // The arXiv view is every other address: the PDF viewer reads the paper from the address
+  const arxivView = !['/', '/projects', '/blog'].includes(pathname)
+  const subView = projectsView || blogView || arxivView
+  const view: MapView = projectsView ? 'projects' : blogView ? 'blog' : arxivView ? 'arxiv' : 'home'
+  const [showProjects, setShowProjects] = useState(false)
   const [userInteracted, setUserInteracted] = useState(false)
   const controlsRef = useRef<any>(null)
 
@@ -841,6 +1168,110 @@ function SummonersRift() {
     setShowCenterPanel(near)
   }, [])
   
+  // Entering the Projects view clears the home panels; leaving it sends the camera back home
+  const wasProjectsView = useRef(false)
+  useEffect(() => {
+    if (subView) {
+      setProfileOpen(false)
+      setShowCenterPanel(false)
+    } else if (wasProjectsView.current) {
+      setGoingHome(true)
+      setStartCinema(false)
+    }
+    wasProjectsView.current = subView
+  }, [subView])
+
+  // Fetched as soon as the page loads (cached for ten minutes), so the data is already here when
+  // Projects is clicked
+  // The music player stays mounted (so the music keeps playing), but its box is drawn again every
+  // time the view changes, like the panels that are rebuilt
+  // Coming back to a view draws the layout editor afresh, once. Opening and closing it within a view
+  // does not. This runs in the commit itself (a layout effect), before the HUD notices the editor
+  // mounting again.
+  const forgetView = useRef(view)
+  useLayoutEffect(() => {
+    if (forgetView.current === view) return
+    forgetView.current = view
+    window.dispatchEvent(new CustomEvent('hud-forget', { detail: { names: ['Layout editor'] } }))
+  }, [view])
+
+  const prevView = useRef(view)
+  useEffect(() => {
+    // Only a real change of view (not the first render, nor React's development double run)
+    if (prevView.current === view) return
+    prevView.current = view
+    const frame = requestAnimationFrame(() =>
+      window.dispatchEvent(new CustomEvent('hud-redraw', { detail: { selector: '[data-hud-draw="Music player"]' } })),
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [view])
+
+  const readme = useReadme(true)
+  const repos = useProjects(true)
+  // The panels are drawn shortly after the camera starts moving, once the GitHub data is in. They
+  // do not wait for the home boxes to finish drawing.
+  const projectsDataReady = !readme.loading && !repos.loading
+  useEffect(() => {
+    if (!(projectsView && isReady && projectsDataReady)) {
+      setShowProjects(false)
+      return
+    }
+    const timer = window.setTimeout(() => setShowProjects(true), 300)
+    return () => window.clearTimeout(timer)
+  }, [projectsView, isReady, projectsDataReady])
+
+  // The Blog box is drawn shortly after the camera starts moving, like the Projects box
+  const [showBlog, setShowBlog] = useState(false)
+  useEffect(() => {
+    if (!(blogView && isReady)) {
+      setShowBlog(false)
+      return
+    }
+    const timer = window.setTimeout(() => setShowBlog(true), 300)
+    return () => window.clearTimeout(timer)
+  }, [blogView, isReady])
+
+  // The arXiv view: which paper and page, and whether the side-by-side comparison is on. The
+  // comparison is a 0..1 value the camera and the papers both follow (eased in CameraController).
+  const arxivTarget = useMemo(() => resolveTarget(pathname, search), [pathname, search])
+  const [arxivPage, setArxivPage] = useState(1)
+  const [arxivPages, setArxivPages] = useState(0)
+  const [arxivError, setArxivError] = useState<string | null>(null)
+  // Translating the paper: the papers do it and report progress; the controls start and stop it
+  const [arxivTranslation, setArxivTranslation] = useState<ArxivTranslation>(idleTranslation)
+  const arxivCommands = useRef<ArxivCommands>({ translate: () => undefined, stop: () => undefined, reset: () => undefined })
+  const [arxivMode, setArxivMode] = useState<ArxivMode>('overview')
+  const arxivCompare = useRef<ArxivViewState>(initialArxivView())
+  useEffect(() => {
+    const v = arxivCompare.current
+    v.target = arxivView && arxivMode === 'compare' ? 1 : 0
+    v.focusTarget = arxivView ? (arxivMode === 'left' ? -1 : arxivMode === 'right' ? 1 : 0) : 0
+    v.panelTarget = arxivView && (arxivMode === 'bar' || arxivMode === 'music') ? ARXIV_SPOTS[arxivMode] : null
+  }, [arxivView, arxivMode])
+  useEffect(() => {
+    setArxivPage(1)
+  }, [arxivTarget])
+  useEffect(() => {
+    if (!arxivView) {
+      setArxivTranslation(idleTranslation)
+      setArxivMode('overview')
+      arxivCompare.current.t = 0
+      arxivCompare.current.fa = 0
+      arxivCompare.current.pa = 0
+    }
+  }, [arxivView])
+
+  // The arXiv box is drawn shortly after the camera starts moving, like the others
+  const [showArxiv, setShowArxiv] = useState(false)
+  useEffect(() => {
+    if (!(arxivView && isReady)) {
+      setShowArxiv(false)
+      return
+    }
+    const timer = window.setTimeout(() => setShowArxiv(true), 300)
+    return () => window.clearTimeout(timer)
+  }, [arxivView, isReady])
+
   // Camera spawn at random position - use lazy initialization for initial state
   const [initialCamera] = useState(() => {
     const position = {
@@ -880,6 +1311,7 @@ function SummonersRift() {
   
   // Handle start exploring
   const handleStartExploring = useCallback(() => {
+    setProfileOpen(false)
     setGoingHome(false)
     setStartCinema(true)
     setUserInteracted(true) // Trigger music playback
@@ -950,6 +1382,10 @@ function SummonersRift() {
           from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
           to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
+        @keyframes fadeInBottom {
+          from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
         @keyframes hexGlow {
           0%, 100% { box-shadow: 0 0 20px rgba(200, 170, 110, 0.3), 0 0 40px rgba(10, 200, 255, 0.2), inset 0 0 60px rgba(200, 170, 110, 0.1); }
           50% { box-shadow: 0 0 30px rgba(200, 170, 110, 0.5), 0 0 60px rgba(10, 200, 255, 0.3), inset 0 0 80px rgba(200, 170, 110, 0.2); }
@@ -964,29 +1400,15 @@ function SummonersRift() {
       `}</style>
       
       {/* Fixed Camera Info - Top Left (below nav bar) */}
-      <div style={{
-        position: 'fixed',
-        top: '76px',
-        left: '20px',
-        zIndex: 1000,
-        background: 'rgba(0, 0, 0, 0.7)',
-        padding: '15px 20px',
-        borderRadius: '8px',
-        color: 'white',
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        lineHeight: '1.6',
-        pointerEvents: 'none'
-      }}>
-        <div>Position: ({cameraPos.x.toFixed(1)}, {cameraPos.y.toFixed(1)}, {cameraPos.z.toFixed(1)})</div>
-        <div>Yaw: {cameraRotation.yaw.toFixed(1)}° | Pitch: {cameraRotation.pitch.toFixed(1)}°</div>
-      </div>
+      {!subView && <PositionBox pos={cameraPos} rot={cameraRotation} />}
 
       {/* Back to Home button removed - nav bar replaces it */}
 
       {/* Three.js Canvas */}
       {canvasMounted && (
       <Canvas
+        // A click on the background (nothing in the scene was hit) zooms the arXiv view back out
+        onPointerMissed={() => setArxivMode((m) => (m === 'overview' ? m : 'overview'))}
         style={{
           width: '100vw', 
           height: '100vh', 
@@ -998,15 +1420,15 @@ function SummonersRift() {
         camera={{ 
           position: [initialCamera.x, initialCamera.y, initialCamera.z],
           fov: 60,
-          near: 0.1,
-          far: mobile ? 500 : 1000  // Mobile: Reduced render distance
+          near: 0.5, // a tight near/far range keeps depth precise, so models under the map stay hidden
+          far: 600 // the fog is fully opaque by 500
         }}
         shadows
         gl={{ 
           powerPreference: mobile ? "default" : "high-performance",  // Mobile: Battery savings
           stencil: false,
           depth: true,
-          logarithmicDepthBuffer: mobile ? true : false  // Mobile: Better depth precision
+          logarithmicDepthBuffer: true // overlapping map surfaces z-fight without it
         }}
         dpr={ [1, 1.5]}
       >
@@ -1040,18 +1462,51 @@ function SummonersRift() {
           <SummonersRiftModel onReady={handleReady} isMobileDevice={mobile} />
         </Suspense>
 
+        {/* Towers, nexuses and champions built from real CC0 models */}
+        <Suspense fallback={null}>
+          {/* The floating tags over the models are off in the arXiv view, and back as they were elsewhere */}
+          <RiftModels hideTags={arxivView} />
+        </Suspense>
+
+        {/* The controls and the music player of the arXiv view, inside the scene. After the camera
+            controller, so they see where the camera is this frame. */}
+        {arxivView && isReady && (
+          <Css3dPanels anchor={{ position: ARXIV_VIEW.position, yaw: ARXIV_VIEW.pose.yaw }} panels={ARXIV_PANELS} />
+        )}
+
+        {/* The two papers of the arXiv view, inside the scene */}
+        {arxivView && isReady && (
+          <Suspense fallback={null}>
+            <ArxivPapers
+              target={arxivTarget}
+              page={arxivPage}
+              anchor={{ position: ARXIV_VIEW.position, yaw: ARXIV_VIEW.pose.yaw }}
+              compare={arxivCompare}
+              onPages={setArxivPages}
+              onError={setArxivError}
+              commands={arxivCommands}
+              onTranslation={setArxivTranslation}
+              onPick={(side) => setArxivMode(side)}
+            />
+          </Suspense>
+        )}
+
         {/* WASD Camera Controller */}
         <CameraController
           onPositionChange={setCameraPos}
           onRotationChange={setCameraRotation}
           controlsRef={controlsRef}
           goingHome={goingHome}
+          projectsMode={subView}
+          freeView={blogView ? 'blog' : arxivView ? 'arxiv' : null}
+          arxivCompare={arxivCompare}
           startCinema={startCinema}
           onNearHome={handleNearHome}
         />
 
         {/* Controls */}
         <OrbitControls
+          makeDefault
           ref={controlsRef}
           enableZoom={true}
           enablePan={true}
@@ -1076,7 +1531,7 @@ function SummonersRift() {
           top: '90%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          zIndex: 999
+          zIndex: 4000
         }}>
           {/* Start Exploring Button - Standalone */}
           <button
@@ -1114,28 +1569,56 @@ function SummonersRift() {
         </div>
       )}
 
+      {/* Layout editor pill and panel (local only, open by default) */}
+      {!subView && <LayoutEditorUI />}
+
+      {/* Quick button to bring the profile back after it has been closed */}
+      {secret && drawn && isReady && !subView && !((goingHome && showCenterPanel) || profileOpen) && (
+        <DragButton
+          id="profile-button"
+          onClick={() => setProfileOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 4000,
+            padding: '8px 18px',
+            background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.95) 0%, rgba(0, 20, 40, 0.9) 100%)',
+            border: '1px solid #C8AA6E',
+            color: '#C8AA6E',
+            fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+            letterSpacing: '2px',
+            textTransform: 'uppercase',
+            fontSize: '13px',
+            cursor: 'pointer',
+            boxShadow: '0 0 14px rgba(200, 170, 110, 0.3)',
+          }}
+        >
+          ⬢ Profile
+        </DragButton>
+      )}
+
       {/* Center Content - League of Legends Style Panel - Only when secret is true */}
-      {goingHome && showCenterPanel && secret && (
-        <div style={{
+      {secret && ((goingHome && showCenterPanel) || profileOpen) && (
+        <div className="hud-box" style={{
           position: 'fixed',
-          top: '50%',
+          // Docked to the bottom of the screen, centred
+          bottom: '20px',
           left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 999,
-          background: 'linear-gradient(135deg, rgba(1, 10, 19, 0.98) 0%, rgba(0, 20, 40, 0.98) 100%)',
-          padding: mobile ? '30px 20px' : '60px 80px',
-          clipPath: mobile ? 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px))' : 'polygon(0 0, calc(100% - 25px) 0, 100% 25px, 100% 100%, 25px 100%, 0 calc(100% - 25px))',
-          color: 'white',
-          fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
+          transform: 'translateX(-50%)',
+          maxHeight: 'calc(100vh - 110px)',
+          overflowY: 'auto',
+          zIndex: 4000,
+          padding: mobile ? `${hudPad(30)} ${hudPad(20)}` : `${hudPad(60)} ${hudPad(80)}`,
           textAlign: 'center',
-          minWidth: mobile ? '90vw' : '600px',
-          maxWidth: mobile ? '95vw' : '700px',
-          border: mobile ? '2px solid rgba(200, 170, 110, 0.8)' : '3px solid rgba(200, 170, 110, 0.8)',
+          // A fluid starting width. PanelChrome replaces it with the dragged size, if any.
+          width: mobile ? 'calc(100vw - 24px)' : 'min(700px, calc(100vw - 24px))',
           opacity: 0,
-          animation: 'fadeInCenter 1.5s ease-in forwards, hexGlow 3s infinite, borderPulse 2s infinite',
-          backdropFilter: 'blur(15px)',
-          boxShadow: '0 0 40px rgba(200, 170, 110, 0.3), inset 0 0 60px rgba(0, 0, 0, 0.3)'
-        }}>
+          // Only the fade-in: the border, glow and corners are the shared box look
+          animation: 'fadeInBottom 1.5s ease-in forwards',
+        }} data-hud-draw="Profile" data-hud-always>
+          <PanelChrome id="profile" label="Profile" resizable noButton minWidth={280} minHeight={180} />
           {/* Close Button - Top Right */}
           <button
             onClick={handleStartExploring}
@@ -1198,29 +1681,29 @@ function SummonersRift() {
             left: '50%',
             transform: 'translateX(-50%)',
             background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
-            padding: mobile ? '6px 15px' : '8px 30px',
+            padding: mobile ? `${hud(6)} ${hud(15)}` : `${hud(8)} ${hud(30)}`,
             clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
-            fontSize: mobile ? '9px' : '12px',
+            fontSize: mobile ? hud(9) : hud(12),
             fontWeight: 'bold',
             letterSpacing: mobile ? '1px' : '2px',
             color: '#0A1428',
             textTransform: 'uppercase',
             boxShadow: '0 4px 15px rgba(200, 170, 110, 0.6)'
-          }}>
+          }} data-hud-type>
             ⬢ Summoner Profile ⬢
           </div>
 
           {/* Title with LoL gold - Enhanced */}
           <h2 style={{ 
             margin: mobile ? '20px 0 10px 0' : '30px 0 15px 0', 
-            fontSize: mobile ? '28px' : '42px',
+            fontSize: mobile ? hud(28) : hud(42),
             fontWeight: 'bold',
             color: '#C8AA6E',
             textTransform: 'uppercase',
             letterSpacing: mobile ? '2px' : '4px',
             textShadow: '0 0 25px rgba(200, 170, 110, 0.6), 0 0 50px rgba(10, 200, 255, 0.4)',
             lineHeight: '1.2'
-          }}>
+          }} data-hud-type>
             Longpan Zhou
           </h2>
           
@@ -1229,16 +1712,16 @@ function SummonersRift() {
             display: 'inline-block',
             background: 'rgba(10, 200, 255, 0.1)',
             border: '2px solid #0AC8FF',
-            padding: mobile ? '6px 15px' : '8px 25px',
+            padding: mobile ? `${hud(6)} ${hud(15)}` : `${hud(8)} ${hud(25)}`,
             marginBottom: mobile ? '20px' : '30px',
             clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
-            fontSize: mobile ? '11px' : '13px',
+            fontSize: mobile ? hud(11) : hud(13),
             color: '#0AC8FF',
             letterSpacing: mobile ? '1.5px' : '3px',
             textTransform: 'uppercase',
             fontWeight: 'bold',
             boxShadow: '0 0 20px rgba(10, 200, 255, 0.3)'
-          }}>
+          }} data-hud-type>
             ⬡ Software Developer ⬡
           </div>
 
@@ -1248,7 +1731,7 @@ function SummonersRift() {
             justifyContent: 'center',
             gap: mobile ? '10px' : '15px',
             marginBottom: mobile ? '20px' : '35px'
-          }}>
+          }} data-hud-fade data-hud-draw="Links" data-hud-always>
             <SocialLink href="mailto:patrickzhoul123@gmail.com" title="Email" icon={Email} alt="Email" mobile={mobile} />
             <SocialLink href="https://github.com/LongpanZhou" title="GitHub" icon={Github} alt="GitHub" mobile={mobile} external />
             <SocialLink href="https://leetcode.com/u/longpanzhou/" title="LeetCode" icon={Leetcode} alt="LeetCode" mobile={mobile} external />
@@ -1270,11 +1753,11 @@ function SummonersRift() {
               background: 'linear-gradient(135deg, #C8AA6E 0%, #A0885A 100%)',
               border: '2px solid #F0E6D2',
               color: '#0A1428',
-              fontSize: mobile ? '14px' : '16px',
+              fontSize: mobile ? hud(14) : hud(16),
               fontWeight: 'bold',
               textTransform: 'uppercase',
               letterSpacing: mobile ? '1px' : '2px',
-              padding: mobile ? '12px 20px' : '15px 40px',
+              padding: mobile ? `${hud(12)} ${hud(20)}` : `${hud(15)} ${hud(40)}`,
               borderRadius: '0',
               clipPath: 'polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)',
               cursor: 'pointer',
@@ -1301,22 +1784,44 @@ function SummonersRift() {
       )}
 
       {/* Controls Info - Hidden when going home or on mobile */}
-      {!mobile && (
-      <div className="controls-info">
-        <h3>Controls</h3>
-        <ul>
-            <li><strong>C:</strong> Toggle auto-movement (cinematic mode)</li>
-            <li><strong>W/A/S/D:</strong> Move camera forward/left/back/right</li>
-            <li><strong>Q/E:</strong> Move camera down/up</li>
-            <li><strong>Left Click + Drag:</strong> Rotate view</li>
-          <li><strong>Right Click + Drag:</strong> Pan camera</li>
-          <li><strong>Scroll:</strong> Zoom in/out</li>
+      {!mobile && !subView && (
+      <div className="controls-info hud-box" data-hud-draw="Controls" data-hud-always>
+        <PanelChrome id="controls-below" label="Controls" resizable fillText minWidth={110} minHeight={60} />
+        <h3 data-hud-type>Controls</h3>
+        <ul data-hud-draw="Keys" data-hud-always>
+            <li data-hud-fade><strong>C:</strong> Auto camera</li>
+            <li data-hud-fade><strong>W A S D:</strong> Move</li>
+            <li data-hud-fade><strong>Q E:</strong> Down / up</li>
+            <li data-hud-fade><strong>Left drag:</strong> Look</li>
+          <li data-hud-fade><strong>Right drag:</strong> Pan</li>
+          <li data-hud-fade><strong>Scroll:</strong> Zoom</li>
         </ul>
       </div>
       )}
 
   {/* Music Player - hidden on mobile */}
-  {!mobile && secret && <MusicPlayer onUserInteraction={userInteracted} />}
+  {!mobile && secret && <MusicPlayer onUserInteraction={userInteracted} view={view} onFocusBox={() => setArxivMode('music')} />}
+
+      {/* README and repos over the map in the Projects view */}
+      {showProjects && projectsView && <ProjectsHud projects={repos.projects} />}
+      {showBlog && blogView && <BlogHud />}
+      {showArxiv && arxivView && (
+        <ArxivHud
+          target={arxivTarget}
+          page={arxivPage}
+          pages={arxivPages}
+          error={arxivError}
+          mode={arxivMode}
+          onPage={setArxivPage}
+          onMode={setArxivMode}
+          onFocusBox={() => setArxivMode('bar')}
+          translation={arxivTranslation}
+          commands={arxivCommands}
+        />
+      )}
+
+      {/* Wireframe boxes over the HUD panels above (home page only) */}
+      <HudDraw ready={isReady} onDone={() => setDrawn(true)} />
     </div>
   )
 }
