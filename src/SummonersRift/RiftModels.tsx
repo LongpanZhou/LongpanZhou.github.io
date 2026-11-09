@@ -12,7 +12,7 @@ import { clipControls, hasStates, isEpicModel, isRevealed, joinGroup, kindsOf, l
 import type { ClipControl, GroupMember } from './monsterClips'
 import { DEFAULT_ADDED, DEFAULT_DELETED, DEFAULT_LOCKED, DEFAULT_NAMES, DEFAULT_OVERRIDES, DEFAULT_PATHS, DEFAULT_TYPE_SCALES } from './riftLayoutDefault'
 import { BAKED_POSES } from './riftPoses'
-import { EDITOR_ENABLED, IS_LOCAL, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
+import { EDITOR_ENABLED, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
 import type { AddedEntry, InventoryTile, PathPoints, Pose } from './riftEdit'
 import './RiftLock.css'
 
@@ -35,12 +35,11 @@ const NEXUS_HEIGHT = 8
 // on top of the facing rule.
 const TURRET_YAW = -Math.PI / 2
 
-// Layout editor. It opens by itself when the site is entered on localhost. Drag a model to move
-// it, use the toolbars over each entity to turn, resize and lift it, and copy the exported layout.
-// It starts expanded, on the right side, when the site is entered on localhost (minimize it to the
-// small box on the right). It never shows on the public site.
+// Layout editor. Drag a model to move it, use the toolbars over each entity to turn, resize and lift it.
+// It starts expanded, on the right side, for everyone (minimize it to the small box on the right). The
+// export of the layout is the developer's: it shows on localhost only.
 const BOXES_KEY = 'riftBoxes'
-const START_EDITING = IS_LOCAL
+const START_EDITING = EDITOR_ENABLED
 
 interface Monster {
   name: string
