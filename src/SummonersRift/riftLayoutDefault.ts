@@ -186,6 +186,7 @@ interface SavedLayout {
   __names?: Record<string, string>
   __deleted?: string[]
   __locked?: string[]
+  __paths?: Record<string, [number, number][]>
   [id: string]: unknown
 }
 const layout = saved as unknown as SavedLayout
@@ -200,8 +201,8 @@ export const DEFAULT_OVERRIDES: Record<string, Pose> = hasSaved
       Object.entries(layout)
         .filter(([id, value]) => !id.startsWith('__') && typeof value === 'object' && value !== null)
         .map(([id, value]) => {
-          const v = value as { x: number; z: number; yawDeg: number; y?: number }
-          return [id, { x: v.x, z: v.z, yaw: rad(v.yawDeg), y: v.y ?? 0 }]
+          const v = value as { x: number; z: number; yawDeg: number; y?: number; pitchDeg?: number }
+          return [id, { x: v.x, z: v.z, yaw: rad(v.yawDeg), y: v.y ?? 0, ...(v.pitchDeg ? { pitch: rad(v.pitchDeg) } : {}) }]
         }),
     )
   : SEED_OVERRIDES
@@ -210,3 +211,6 @@ export const DEFAULT_TYPE_SCALES: Record<string, number> = hasSaved ? (layout.__
 export const DEFAULT_NAMES: Record<string, string> = hasSaved ? (layout.__names ?? {}) : SEED_NAMES
 export const DEFAULT_LOCKED: string[] = hasSaved ? (layout.__locked ?? []) : SEED_LOCKED
 export const DEFAULT_DELETED: string[] = hasSaved ? (layout.__deleted ?? []) : SEED_DELETED
+
+// Routes drawn for the scuttle crab, by entity id: it walks along them (see RiftModels.tsx)
+export const DEFAULT_PATHS: Record<string, [number, number][]> = hasSaved ? { ...(layout.__paths ?? {}) } : {}

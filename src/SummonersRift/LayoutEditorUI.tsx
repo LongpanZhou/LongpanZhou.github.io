@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import type { CSSProperties } from 'react'
 import PanelChrome, { DragBox } from './PanelChrome'
 import { getPreview } from './modelPreview'
-import { EDITOR_ENABLED, editorStore } from './riftEdit'
+import { EDITOR_ENABLED, IS_VISITOR, editorStore } from './riftEdit'
 import type { InventoryTile } from './riftEdit'
 
 const PREVIEW_HEIGHT = 96
@@ -20,7 +20,7 @@ function readPanelSize(): { width: number; height: number } | null {
 
 // A model's thumbnail. It is only rendered once it scrolls into view: the champion files are
 // 5 to 20 MB each, so rendering all of them up front would stall the page.
-function Preview({ url, tint }: { url: string; tint?: string }) {
+function Preview({ url, tint, thumb }: { url: string; tint?: string; thumb?: string }) {
   const box = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const [src, setSrc] = useState('')
@@ -43,6 +43,11 @@ function Preview({ url, tint }: { url: string; tint?: string }) {
 
   useEffect(() => {
     if (!visible) return
+    // A ready-made picture is just shown. Without one the model is loaded and drawn.
+    if (thumb) {
+      setSrc(thumb)
+      return
+    }
     let alive = true
     getPreview(url, tint).then((image) => {
       if (alive) setSrc(image)
@@ -50,7 +55,7 @@ function Preview({ url, tint }: { url: string; tint?: string }) {
     return () => {
       alive = false
     }
-  }, [visible, url, tint])
+  }, [visible, url, tint, thumb])
 
   return (
     <div ref={box} style={{ height: PREVIEW_HEIGHT, display: 'grid', placeItems: 'center' }}>
@@ -409,7 +414,7 @@ export default function LayoutEditorUI() {
                 }}
                 onPointerDown={(e) => dragTile(e, tile)}
               >
-                <Preview url={tile.url} tint={tile.tint} />
+                <Preview url={tile.url} tint={tile.tint} thumb={tile.thumb} />
                 <div style={{ fontSize: 10, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tile.label}</div>
                 {tile.team && (
                   <div style={{ fontSize: 9, color: tile.team === 'order' ? '#0ac8ff' : '#ff6b6b', letterSpacing: 1 }}>{tile.team}</div>
@@ -419,7 +424,9 @@ export default function LayoutEditorUI() {
             {visible.length === 0 && (
               <div style={{ gridColumn: '1 / -1', opacity: 0.7, padding: 8 }}>
                 {snap.inventory.length === 0
-                  ? 'No models found. The inventory reads the modelviewer folder in the project root (set LOCAL_MODELS_DIR to use another).'
+                  ? IS_VISITOR
+                    ? 'The model list could not be loaded.'
+                    : 'No models found. The inventory reads the modelviewer folder in the project root (set LOCAL_MODELS_DIR to use another).'
                   : 'No models match.'}
               </div>
             )}
@@ -428,6 +435,23 @@ export default function LayoutEditorUI() {
 
         {/* Selection and layout */}
         <div data-hud-fade className="layout-editor__side">
+          {snap.download && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={heading}>
+                {snap.download.progress < 0 ? 'Download failed' : 'Downloading'} · {snap.download.name}
+              </div>
+              <div style={{ height: 6, background: 'rgba(10, 200, 255, 0.15)', border: '1px solid rgba(10, 200, 255, 0.5)' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${Math.max(0, snap.download.progress) * 100}%`,
+                    background: snap.download.progress < 0 ? '#ff4d4d' : '#0ac8ff',
+                    transition: 'width 0.15s',
+                  }}
+                />
+              </div>
+            </div>
+          )}
           <button style={{ ...button, width: '100%', marginBottom: 10 }} onClick={editorStore.actions.toggleBoxes}>
             {snap.boxes ? '◉ hide floating boxes' : '○ show floating boxes'}
           </button>
@@ -445,23 +469,29 @@ export default function LayoutEditorUI() {
               restore {snap.deleted} deleted
             </button>
           )}
-          <div style={heading}>Changed items ({snap.count})</div>
-          <textarea
-            ref={area}
-            readOnly
-            value={exportText}
-            style={{ width: '100%', height: 150, boxSizing: 'border-box', background: '#010a13', color: '#f0e6d2', border: '1px solid #0ac8ff', font: '11px Consolas, monospace' }}
-          />
+          {!IS_VISITOR && (
+            <>
+              <div style={heading}>Changed items ({snap.count})</div>
+              <textarea
+                ref={area}
+                readOnly
+                value={exportText}
+                style={{ width: '100%', height: 150, boxSizing: 'border-box', background: '#010a13', color: '#f0e6d2', border: '1px solid #0ac8ff', font: '11px Consolas, monospace' }}
+              />
+            </>
+          )}
           <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-            <button
-              style={button}
-              onClick={() => {
-                area.current?.select()
-                navigator.clipboard?.writeText(exportText).catch(() => {})
-              }}
-            >
-              copy layout
-            </button>
+            {!IS_VISITOR && (
+              <button
+                style={button}
+                onClick={() => {
+                  area.current?.select()
+                  navigator.clipboard?.writeText(exportText).catch(() => {})
+                }}
+              >
+                copy layout
+              </button>
+            )}
             <button style={button} onClick={editorStore.actions.clear}>
               reset to default
             </button>

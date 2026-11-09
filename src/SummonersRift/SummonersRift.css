@@ -574,11 +574,38 @@
   height: auto !important;
   max-height: none !important;
   min-width: 0 !important;
-  z-index: 900 !important;
+  /* Below the canvas (850) in the arXiv view, which cuts holes in itself where a panel shows */
+  z-index: 800 !important;
   visibility: hidden;
   will-change: transform;
 }
 .css3d-panel > .panel-chrome,
 .css3d-panel > .panel-resize {
   display: none !important;
+}
+
+/* The grip on top of a box in the 3D scene: drag it sideways to turn the box. Inside a panel it sits
+   at the top edge, in the middle. Above a paper it is a free-standing pill. */
+.css3d-grip {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 44px;
+  height: 9px;
+  margin-left: -22px;
+  border-radius: 5px;
+  background: rgba(200, 170, 110, 0.35);
+  border: 1px solid rgba(200, 170, 110, 0.7);
+  cursor: ew-resize;
+  z-index: 3;
+  touch-action: none;
+}
+.css3d-grip:hover {
+  background: rgba(200, 170, 110, 0.65);
+}
+.css3d-grip--paper {
+  position: relative;
+  top: 0;
+  left: 0;
+  margin-left: 0;
 }

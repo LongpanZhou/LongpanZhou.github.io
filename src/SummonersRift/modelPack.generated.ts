@@ -1,0 +1,3 @@
+// Written by scripts/build-model-pack.mjs. The models that ship with the site (public/models/rift) and
+// so are not downloaded from the model pack.
+export const BUNDLED_MODELS: ReadonlySet<string> = new Set(["baron_nashor.glb","blue_sentinel.glb","dragon.glb","dragon_air.glb","dragon_chemtech.glb","dragon_earth.glb","dragon_elder.glb","dragon_fire.glb","dragon_hextech.glb","dragon_water.glb","gromp.glb","gromp_mini.glb","krug.glb","krug_small.glb","murk_wolf.glb","murk_wolf_small.glb","nexus.glb","nexus_1.glb","nexus_16.glb","nexus_17.glb","raptor.glb","raptor_small.glb","red_brambleback.glb","rift_herald.glb","scuttle_crab.glb","turret_1.glb","turrets.glb","voidgrubs.glb","ward_crab_slime.glb"])

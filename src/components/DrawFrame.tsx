@@ -505,6 +505,8 @@ function makeHudBox(target: HTMLElement): HudBox {
   node.className = 'hud-draw__box'
   // A box drawn inside another panel's box is an inner box: lighter, with smaller corners
   if (target.parentElement?.closest('[data-hud-draw]')) node.classList.add('is-inner')
+  // The boxes of the nav bar stay when the view changes (see viewTransition.ts)
+  if (target.closest('.hex-nav')) node.classList.add('hud-draw__box--nav')
   const fill = document.createElement('div')
   fill.className = 'hud-draw__fill'
   node.appendChild(fill)

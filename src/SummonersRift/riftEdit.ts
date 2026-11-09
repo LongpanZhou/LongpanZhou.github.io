@@ -12,6 +12,28 @@ export interface Pose {
   yaw: number
   scale?: number // size multiplier, 1 when missing
   y?: number // height above the ground, in world units, 0 when missing
+  pitch?: number // tilt about the model's own sideways axis in radians, positive is nose down, 0 when missing
+}
+
+// A route drawn on the map: points as [x, z] in world units. It is walked at the height of the entity.
+export type PathPoints = [number, number][]
+const PATHS_KEY = 'riftPaths'
+
+export function loadPaths(fallback: Record<string, PathPoints> = {}): Record<string, PathPoints> {
+  try {
+    const raw = window.localStorage.getItem(PATHS_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, PathPoints>) : JSON.parse(JSON.stringify(fallback))
+  } catch {
+    return JSON.parse(JSON.stringify(fallback))
+  }
+}
+
+export function savePaths(paths: Record<string, PathPoints>) {
+  try {
+    window.localStorage.setItem(PATHS_KEY, JSON.stringify(paths))
+  } catch {
+    // Storage can be blocked. The editor still works for this session.
+  }
 }
 
 const KEY = 'riftLayoutOverrides'
@@ -58,7 +80,10 @@ export function saveTypeScales(scales: Record<string, number>) {
 // The editor's own UI lives in the page, outside the 3D canvas. These tell it whether to exist.
 export const IS_LOCAL =
   typeof window !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
-export const EDITOR_ENABLED = IS_LOCAL
+// The editor is on for everyone, not only on localhost. Visitors get the add-models part of it: the
+// export of the layout (for the developer to paste into the default) stays local.
+export const EDITOR_ENABLED = true
+export const IS_VISITOR = !IS_LOCAL
 
 // A model in the editor's inventory
 export interface InventoryTile {
@@ -68,6 +93,8 @@ export interface InventoryTile {
   url: string
   tint?: string
   team?: 'order' | 'chaos' // Order is the blue side, Chaos the red side; only when the model is for one
+  thumb?: string // a ready-made picture of it (otherwise one is drawn from the model)
+  size?: number // the model's size in bytes, when known
 }
 
 export interface EditorSnapshot {
@@ -79,9 +106,10 @@ export interface EditorSnapshot {
   count: number // number of entities changed
   deleted: number // built-in entities currently deleted
   inventory: InventoryTile[] // everything that can be put on the map
+  download: { name: string; progress: number } | null // a model being downloaded for the map (progress -1: it failed)
 }
 
-let snapshot: EditorSnapshot = { panelOpen: false, boxes: false, selected: null, readout: null, exported: '{}', count: 0, deleted: 0, inventory: [] }
+let snapshot: EditorSnapshot = { panelOpen: false, boxes: false, selected: null, readout: null, exported: '{}', count: 0, deleted: 0, inventory: [], download: null }
 const listeners = new Set<() => void>()
 
 // The canvas (RiftModels) owns the layout state and publishes it here. The page UI reads it

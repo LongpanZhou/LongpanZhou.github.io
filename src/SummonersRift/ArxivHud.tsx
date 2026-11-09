@@ -1,60 +1,104 @@
-import { useEffect, useState } from 'react';
-import type { MutableRefObject } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { bareForm } from '../pdf/pdfTarget';
-import { LANGUAGES } from '../pdf/translate';
-import { averagePageSeconds } from '../pdf/pageTimes';
-import type { ArxivCommands, ArxivMode, ArxivTranslation } from './arxivLayout';
+import type { PaperEntry, PaperInfo } from './arxivLayout';
 import './projectsHud.css';
 
+/** A paper of the list with what it has reported. */
+export type PaperRow = PaperEntry & PaperInfo;
+
 interface Props {
-  target: string | null; // the paper being shown
-  page: number;
-  pages: number; // 0 until the document has loaded
-  error: string | null; // why the paper could not be shown
-  mode: ArxivMode; // the overview, the side-by-side comparison, or one paper in focus
-  onPage: (n: number) => void;
-  onMode: (mode: ArxivMode) => void;
+  papers: PaperRow[];
+  urlError: string | null; // why the paper in the address could not be used
+  listLayout: boolean; // the papers stand in one long row, one after the other
+  onToggleList: () => void;
+  leftOut: string[]; // the papers that are not in the list
+  onToggleListed: (id: string) => void; // put a paper in the list or take it out
+  onFocusSheet: (sheetId: string) => void;
+  onAdd: (address: string) => string | null; // returns why it could not be added, or null
+  onRemove: (id: string) => void;
+  onReorder: (id: string, toIndex: number) => void; // a row was dragged to a new place in the list
+  onReset: () => void; // back to the default set-up: boxes, turns, camera tilt and zoom
   onFocusBox: () => void; // a click on the box (not on a control) focuses the camera on it
-  translation: ArxivTranslation; // how the translation is going
-  commands: MutableRefObject<ArxivCommands>; // how to start and stop it
 }
 
-const formatDuration = (seconds: number) => (seconds < 90 ? `${Math.round(seconds)} s` : `${Math.round(seconds / 60)} min`);
+const shortName = (target: string) => {
+  const s = bareForm(target);
+  return s.length > 38 ? '…' + s.slice(-37) : s;
+};
 
 /**
  * The controls of the arXiv view. The papers themselves are in the 3D scene (see ArxivPapers); this
- * box holds the address, the page buttons, the translation and the button for the side-by-side
- * comparison. It stands in the scene under the papers (see Css3dPanels).
+ * box holds the list of papers (add, remove, drag to reorder) and the button that puts them all in one
+ * long row. It stands in the scene under the papers (see Css3dPanels).
  */
-export default function ArxivHud({ target, page, pages, error, mode, onPage, onMode, onFocusBox, translation, commands }: Props) {
-  const navigate = useNavigate();
-  const [addr, setAddr] = useState(target ? bareForm(target) : '');
-  useEffect(() => {
-    setAddr(target ? bareForm(target) : '');
-  }, [target]);
+export default function ArxivHud({
+  papers,
+  urlError,
+  listLayout,
+  onToggleList,
+  leftOut,
+  onToggleListed,
+  onFocusSheet,
+  onAdd,
+  onRemove,
+  onReorder,
+  onFocusBox,
+  onReset,
+}: Props) {
+  const [addr, setAddr] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  // A row being dragged, and the place in the list it would drop into
+  const [drag, setDrag] = useState<{ id: string; to: number } | null>(null);
 
-  // The language to translate into: the one picked, or a code typed in for any other
-  const [lang, setLang] = useState('zh-CN');
-  const [custom, setCustom] = useState('');
-  const effectiveLang = (custom.trim() || lang).trim();
-  const running = translation.state === 'running';
-  // Changing the language drops the translation made so far: the right paper shows the original again
-  const pickLang = (next: string, isCustom: boolean) => {
-    commands.current.reset();
-    if (isCustom) setCustom(next);
-    else setLang(next);
+  const add = () => {
+    const why = onAdd(addr);
+    setAddError(why);
+    if (!why) setAddr('');
   };
-  const avg = averagePageSeconds();
-  const avgText = avg === null ? 'Usually 20–30 s per page' : `Average ${Math.round(avg)} s per page`;
-  const eta =
-    avg !== null && running ? ` · about ${formatDuration((translation.total - translation.done) * avg)} left` : '';
-  const pct = translation.total ? Math.round((translation.done / translation.total) * 100) : 0;
 
-  const open = () => {
-    const v = addr.trim().replace(/^\/+/, '').replace(/^https?:\/\//i, '');
-    if (v) navigate('/' + v);
+  // Dragging a row: press on it (not on its remove button) and move. The place it would drop into is the
+  // number of the other rows whose middles are above the pointer.
+  const startDrag = (e: ReactPointerEvent, id: string, from: number) => {
+    if (e.button !== 0 || (e.target as Element).closest('[data-norow]')) return;
+    const startY = e.clientY;
+    let active = false;
+    let to = from;
+    const places = (y: number) => {
+      const rows = [...(listRef.current?.querySelectorAll<HTMLElement>('.arxiv-item') ?? [])];
+      return rows.filter((row, i) => {
+        if (i === from) return false;
+        const r = row.getBoundingClientRect();
+        return r.top + r.height / 2 < y;
+      }).length;
+    };
+    const move = (ev: PointerEvent) => {
+      if (!active && Math.abs(ev.clientY - startY) < 5) return;
+      active = true;
+      to = places(ev.clientY);
+      setDrag({ id, to });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      setDrag(null);
+      if (!active) return;
+      if (to !== from) onReorder(id, to);
+      // The click that ends a drag must not focus the paper
+      const stop = (ce: Event) => ce.stopPropagation();
+      window.addEventListener('click', stop, { capture: true, once: true });
+      window.setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 100);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   };
+
+  const errorText = addError ?? urlError;
+  // The rows without the one being dragged, to say where it would land
+  const others = drag ? papers.filter((r) => r.id !== drag.id) : papers;
 
   return (
     // A panel in the 3D scene (see Css3dPanels): no drag handle, no minimize, and no HUD box drawn
@@ -66,102 +110,92 @@ export default function ArxivHud({ target, page, pages, error, mode, onPage, onM
         if (!(e.target as Element).closest('button, input, select, textarea, a, label')) onFocusBox();
       }}
     >
+      <div className="css3d-grip" data-rotate title="Drag sideways to turn" />
       <div className="rift-doc__head">
         <h2 className="rift-doc__title">arXiv</h2>
-        <span className="rift-doc__sub">{target ? bareForm(target) : 'no paper'}</span>
+        <span className="rift-doc__sub">
+          {papers.length} paper{papers.length === 1 ? '' : 's'}
+        </span>
       </div>
       <form
         className="arxiv-bar__addr"
-       
         onSubmit={(e) => {
           e.preventDefault();
-          open();
+          add();
         }}
       >
         <input
           className="arxiv-bar__input"
           value={addr}
-          onChange={(e) => setAddr(e.target.value)}
+          onChange={(e) => {
+            setAddr(e.target.value);
+            setAddError(null);
+          }}
           spellCheck={false}
-          placeholder="arxiv.org/pdf/1706.03762"
-          aria-label="PDF address"
+          placeholder="Add a paper: arxiv.org/pdf/1706.03762 or just 1706.03762"
+          aria-label="PDF address or arXiv id"
         />
-        <button type="submit" className="arxiv-bar__btn">Open</button>
+        <button type="submit" className="arxiv-bar__btn">Add</button>
+        <button
+          type="button"
+          className={`arxiv-bar__btn arxiv-bar__btn--wide${listLayout ? ' arxiv-bar__btn--on' : ''}`}
+          onClick={onToggleList}
+          title="Put the ticked papers in one long row, one after the other"
+        >
+          {listLayout ? 'Spread out' : `List (${papers.length - papers.filter((r) => leftOut.includes(r.id)).length})`}
+        </button>
       </form>
-      <div className="arxiv-bar__row">
-        <button
-          type="button"
-          className="arxiv-bar__btn"
-          onClick={() => onPage(page - 1)}
-          disabled={page <= 1}
-          aria-label="Previous page"
-        >
-          ◀
-        </button>
-        <span className="arxiv-bar__page">Page {page} / {pages || '–'}</span>
-        <button
-          type="button"
-          className="arxiv-bar__btn"
-          onClick={() => onPage(page + 1)}
-          disabled={!pages || page >= pages}
-          aria-label="Next page"
-        >
-          ▶
-        </button>
-        <button
-          type="button"
-          className={`arxiv-bar__btn arxiv-bar__btn--wide${mode !== 'overview' ? ' arxiv-bar__btn--on' : ''}`}
-          onClick={() => onMode(mode === 'overview' ? 'compare' : 'overview')}
-          disabled={!pages}
-        >
-          {mode === 'overview' ? 'Side by side' : 'Overview'}
+      {errorText && <div className="arxiv-bar__error arxiv-bar__error--tight">{errorText}</div>}
+
+      <div className="arxiv-list" ref={listRef} data-nodrag>
+        {papers.length === 0 && <div className="arxiv-list__empty">No papers yet. Add one above.</div>}
+        {papers.map((r, i) => {
+          const isDragged = drag?.id === r.id;
+          // The row that the dragged one would land in front of (or after, at the end of the list)
+          const idx = others.findIndex((o) => o.id === r.id);
+          const before = !!drag && !isDragged && idx === drag.to;
+          const after = !!drag && !isDragged && idx === others.length - 1 && drag.to >= others.length;
+          return (
+            <div
+              className={`arxiv-item${isDragged ? ' arxiv-item--drag' : ''}${before ? ' arxiv-item--before' : ''}${after ? ' arxiv-item--after' : ''}`}
+              key={r.id}
+              onPointerDown={(e) => startDrag(e, r.id, i)}
+            >
+              <div className="arxiv-item__top">
+                <span className="arxiv-item__grip" aria-hidden>⋮⋮</span>
+                <input
+                  type="checkbox"
+                  data-norow
+                  checked={!leftOut.includes(r.id)}
+                  onChange={() => onToggleListed(r.id)}
+                  title="In the list"
+                  aria-label="In the list"
+                />
+                <button type="button" className="arxiv-item__name" onClick={() => onFocusSheet(r.id)} title={bareForm(r.target)}>
+                  {shortName(r.target)}
+                </button>
+                <button
+                  type="button"
+                  data-norow
+                  className="arxiv-bar__btn arxiv-item__x"
+                  onClick={() => onRemove(r.id)}
+                  aria-label="Remove paper"
+                  title="Remove this paper"
+                >
+                  ✕
+                </button>
+              </div>
+              {r.error && <div className="arxiv-item__status arxiv-item__status--bad">{r.error}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="arxiv-bar__hint">
+        <button type="button" className="arxiv-bar__reset" onClick={onReset}>
+          Restore default (R)
         </button>
       </div>
-      <div className="arxiv-bar__row">
-        <select
-          className="arxiv-bar__input arxiv-bar__select"
-          value={lang}
-          onChange={(e) => pickLang(e.target.value, false)}
-          aria-label="Translate into"
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-        <input
-          className="arxiv-bar__input arxiv-bar__code"
-          value={custom}
-          onChange={(e) => pickLang(e.target.value, true)}
-          spellCheck={false}
-          placeholder="or a code"
-          aria-label="Other language code"
-        />
-        <button
-          type="button"
-          className={`arxiv-bar__btn arxiv-bar__btn--wide${running ? ' arxiv-bar__btn--on' : ''}`}
-          disabled={!pages || !effectiveLang}
-          onClick={() => (running ? commands.current.stop() : commands.current.translate(effectiveLang))}
-        >
-          {running ? 'Stop' : translation.state === 'done' ? 'Translate again' : 'Translate'}
-        </button>
-      </div>
-      {translation.state !== 'idle' && (
-        <div className="arxiv-bar__progress">
-          <div className="arxiv-bar__track">
-            <div className="arxiv-bar__fill" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="arxiv-bar__progress-text">
-            {translation.state === 'error'
-              ? `Translation stopped: ${translation.error}`
-              : translation.state === 'done'
-                ? `Translated all ${translation.total} pages`
-                : `Translated ${translation.done} of ${translation.total} pages · ${avgText}${eta}`}
-          </div>
-        </div>
-      )}
-      {error && <div className="arxiv-bar__error">{error}</div>}
     </div>
   );
 }

@@ -347,6 +347,94 @@
   "yawDeg": 563.6,
   "y": -0.5
  },
+ "added-mw8j1z7t-file:ward_crab_slime.glb": {
+  "x": -43.95,
+  "z": 96.63,
+  "yawDeg": -124.8,
+  "y": 0,
+  "pitchDeg": 45
+ },
+ "added-mw8jhf1d-file:ward_crab_slime.glb": {
+  "x": -104.94,
+  "z": 52.1,
+  "yawDeg": -124.8,
+  "y": 0,
+  "pitchDeg": 45
+ },
+ "__paths": {
+  "added-mw8j1z7t-file:ward_crab_slime.glb": [
+   [
+    -61.76,
+    85.08
+   ],
+   [
+    -54.54,
+    89.7
+   ],
+   [
+    -47.74,
+    93.44
+   ],
+   [
+    -42.84,
+    97.1
+   ],
+   [
+    -36.81,
+    102.44
+   ],
+   [
+    -34.96,
+    104.42
+   ],
+   [
+    -32.51,
+    108.51
+   ],
+   [
+    -30.86,
+    111.95
+   ],
+   [
+    -30.33,
+    114.52
+   ]
+  ],
+  "added-mw8jhf1d-file:ward_crab_slime.glb": [
+   [
+    -114.06,
+    36.49
+   ],
+   [
+    -112.43,
+    39.77
+   ],
+   [
+    -106.85,
+    48.57
+   ],
+   [
+    -103.41,
+    52.9
+   ],
+   [
+    -98.65,
+    56.94
+   ],
+   [
+    -95.14,
+    59.12
+   ],
+   [
+    -91.5,
+    60.48
+   ],
+   [
+    -87.7,
+    61.35
+   ]
+  ]
+ },
  "__typeScales": {
   "Dragon": 3.225,
   "Rift Herald": 1.34,
@@ -362,38 +450,70 @@
   "file:raptor.glb": 0.823,
   "file:dragon.glb": 3.225,
   "Baron Nashor": 1.407,
-  "file:rift_herald.glb": 1.34
+  "file:rift_herald.glb": 1.34,
+  "file:ward_crab_slime.glb": 1.103
  },
  "__names": {
-  "added-mw62r8mh-file:turrets.glb": "nexus_turret_left",
-  "added-mw62rhfk-file:turrets.glb": "nexus_turret_right",
-  "added-mw63ap35-file:nexus_16.glb": "top_inhibitor",
-  "added-mw637uw9-file:nexus_16.glb": "mid_inhibitor",
-  "added-mw63asca-file:nexus_16.glb": "bot_inhibitor",
-  "added-mw62vkfg-file:turrets.glb": "tier3_bot",
-  "added-mw62vlkj-file:turrets.glb": "tier3_mid",
-  "added-mw62vosq-file:turrets.glb": "tier3_top",
-  "added-mw63gtq2-file:turrets.glb": "tier2_bot",
-  "added-mw63hatw-file:turrets.glb": "tier1_bot",
-  "added-mw63i3kd-file:turrets.glb": "tier2_mid",
-  "added-mw63iki7-file:turrets.glb": "tier1_mid",
-  "added-mw63jk7k-file:turrets.glb": "tier2_top",
-  "added-mw63jzr8-file:turrets.glb": "tier1_top",
-  "added-mw63l8x2-file:nexus_1.glb": "nexus",
-  "added-mw63pkso-file:nexus_17.glb": "bot_inhibitor",
-  "added-mw63oyv0-file:nexus_17.glb": "mid_inhibitor",
-  "added-mw63pohm-file:nexus_17.glb": "top_inhibitor",
-  "added-mw63tz1s-file:turret_1.glb": "nexus_left_turret",
-  "added-mw63rky2-file:turret_1.glb": "nexus_right_turret",
-  "added-mw63vx0x-file:turret_1.glb": "tier3_mid",
-  "added-mw63wir2-file:turret_1.glb": "tier3_top",
-  "added-mw63wrn3-file:turret_1.glb": "tier3_bot",
-  "added-mw63yo23-file:turret_1.glb": "tier2_bot",
-  "added-mw63yv3m-file:turret_1.glb": "tier1_bot",
-  "added-mw63zvy1-file:turret_1.glb": "tier2_mid",
-  "added-mw640lc9-file:turret_1.glb": "tier1_mid",
-  "added-mw641pde-file:turret_1.glb": "tier2_top",
-  "added-mw642u8u-file:turret_1.glb": "tier1_top"
+  "added-mw62qc5s-file:nexus.glb": "red_nexus",
+  "added-mw62r8mh-file:turrets.glb": "red_nexus_turret_left",
+  "added-mw62rhfk-file:turrets.glb": "red_nexus_turret_right",
+  "added-mw62vlkj-file:turrets.glb": "red_tier3_mid",
+  "added-mw62vkfg-file:turrets.glb": "red_tier3_bot",
+  "added-mw62vosq-file:turrets.glb": "red_tier3_top",
+  "added-mw637uw9-file:nexus_16.glb": "red_inhibitor_mid",
+  "added-mw63ap35-file:nexus_16.glb": "red_inhibitor_top",
+  "added-mw63asca-file:nexus_16.glb": "red_inhibitor_bot",
+  "added-mw63gtq2-file:turrets.glb": "red_tier2_bot",
+  "added-mw63hatw-file:turrets.glb": "red_tier1_bot",
+  "added-mw63i3kd-file:turrets.glb": "red_tier2_mid",
+  "added-mw63iki7-file:turrets.glb": "red_tier1_mid",
+  "added-mw63jk7k-file:turrets.glb": "red_tier2_top",
+  "added-mw63jzr8-file:turrets.glb": "red_tier1_top",
+  "added-mw63l8x2-file:nexus_1.glb": "blue_nexus",
+  "added-mw63oyv0-file:nexus_17.glb": "blue_inhibitor_mid",
+  "added-mw63pkso-file:nexus_17.glb": "blue_inhibitor_bot",
+  "added-mw63pohm-file:nexus_17.glb": "blue_inhibitor_top",
+  "added-mw63rky2-file:turret_1.glb": "blue_nexus_turret_right",
+  "added-mw63tz1s-file:turret_1.glb": "blue_nexus_turret_left",
+  "added-mw63vx0x-file:turret_1.glb": "blue_tier3_mid",
+  "added-mw63wir2-file:turret_1.glb": "blue_tier3_top",
+  "added-mw63wrn3-file:turret_1.glb": "blue_tier3_bot",
+  "added-mw63yo23-file:turret_1.glb": "blue_tier2_bot",
+  "added-mw63yv3m-file:turret_1.glb": "blue_tier1_bot",
+  "added-mw63zvy1-file:turret_1.glb": "blue_tier2_mid",
+  "added-mw640lc9-file:turret_1.glb": "blue_tier1_mid",
+  "added-mw641pde-file:turret_1.glb": "blue_tier2_top",
+  "added-mw642u8u-file:turret_1.glb": "blue_tier1_top",
+  "added-mw644fsa-file:murk_wolf.glb": "red_murk_wolf",
+  "added-mw644i2b-file:murk_wolf_small.glb": "red_murk_wolf_small_1",
+  "added-mw646qn6-file:murk_wolf_small.glb": "red_murk_wolf_small_2",
+  "added-mw6471yn-file:blue_sentinel.glb": "red_blue_buff",
+  "added-mw64859b-file:gromp.glb": "red_gromp",
+  "added-mw649kq0-file:blue_sentinel.glb": "blue_blue_buff",
+  "added-mw64a7gt-file:gromp.glb": "blue_gromp",
+  "added-mw64b6ad-file:murk_wolf.glb": "blue_murk_wolf",
+  "added-mw64c9x7-file:murk_wolf_small.glb": "blue_murk_wolf_small_1",
+  "added-mw64duhx-file:murk_wolf_small.glb": "blue_murk_wolf_small_2",
+  "added-mw64epqo-file:red_brambleback.glb": "red_red_buff",
+  "added-mw64g7ry-file:red_brambleback.glb": "blue_red_buff",
+  "added-mw64hfx3-file:krug_small.glb": "blue_krug_small",
+  "added-mw64hdrc-file:krug.glb": "blue_krug",
+  "added-mw64ihps-file:krug_small.glb": "red_krug_small",
+  "added-mw64jcha-file:krug.glb": "red_krug",
+  "added-mw64kof6-file:raptor.glb": "red_raptor",
+  "added-mw64km0f-file:raptor_small.glb": "red_raptor_small_1",
+  "added-mw64o6n6-file:raptor_small.glb": "red_raptor_small_2",
+  "added-mw64o83y-file:raptor_small.glb": "red_raptor_small_3",
+  "added-mw64o8n9-file:raptor_small.glb": "red_raptor_small_4",
+  "added-mw64o98p-file:raptor_small.glb": "red_raptor_small_5",
+  "added-mw64q7ra-file:raptor_small.glb": "blue_raptor_small_1",
+  "added-mw64qkaa-file:raptor.glb": "blue_raptor",
+  "added-mw64r8eo-file:raptor_small.glb": "blue_raptor_small_2",
+  "added-mw64r8sz-file:raptor_small.glb": "blue_raptor_small_3",
+  "added-mw64r9bd-file:raptor_small.glb": "blue_raptor_small_4",
+  "added-mw64r9vk-file:raptor_small.glb": "blue_raptor_small_5",
+  "added-mw8j1z7t-file:ward_crab_slime.glb": "river_ward_crab_slime_1",
+  "added-mw8jhf1d-file:ward_crab_slime.glb": "river_ward_crab_slime_2"
  },
  "__added": [
   {
@@ -801,9 +921,24 @@
    "x": -67.88,
    "z": 52.24,
    "yawDeg": 563.6
+  },
+  {
+   "id": "added-mw8j1z7t-file:ward_crab_slime.glb",
+   "type": "file:ward_crab_slime.glb",
+   "x": -35.19,
+   "z": 103.34,
+   "yawDeg": -124.8
+  },
+  {
+   "id": "added-mw8jhf1d-file:ward_crab_slime.glb",
+   "type": "file:ward_crab_slime.glb",
+   "x": -40.95,
+   "z": 99.63,
+   "yawDeg": -124.8
   }
  ],
  "__deleted": [
+  "red-tower-3",
   "blue-tower-0",
   "blue-tower-2",
   "camp-Gromp-blue",
@@ -893,7 +1028,8 @@
   "added-mw64qkaa-file:raptor.glb",
   "added-mw64r8eo-file:raptor_small.glb",
   "added-mw64r9bd-file:raptor_small.glb",
-  "added-mw64r9vk-file:raptor_small.glb"
+  "added-mw64r9vk-file:raptor_small.glb",
+  "added-mw8jhf1d-file:ward_crab_slime.glb"
  ],
  "__savedAt": "2026-11-07T08:40:37.478Z"
 }

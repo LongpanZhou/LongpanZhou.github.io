@@ -514,6 +514,26 @@ html.rift-dragging * {
   font: 12px Consolas, ui-monospace, monospace;
 }
 
+.arxiv-bar__hint {
+  padding: 0 20px 12px;
+  color: rgba(240, 230, 210, 0.55);
+  font: 11px Consolas, ui-monospace, monospace;
+  text-align: center;
+}
+
+.arxiv-bar__reset {
+  background: none;
+  border: 1px solid rgba(200, 170, 110, 0.6);
+  border-radius: 3px;
+  color: #c8aa6e;
+  font: inherit;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.arxiv-bar__reset:hover {
+  background: rgba(200, 170, 110, 0.18);
+}
+
 .arxiv-bar__select {
   flex: 1 1 140px;
   cursor: pointer;
@@ -549,4 +569,116 @@ html.rift-dragging * {
 /* No drag handle or buttons in the corner of the scene controls, so no room is kept for them */
 .rift-doc--arxiv-bar .rift-doc__head {
   padding-right: 20px;
+}
+
+/* The list of papers in the arXiv controls */
+.arxiv-list {
+  max-height: 230px;
+  overflow-y: auto;
+  margin: 0 20px;
+  padding-right: 4px;
+  border-top: 1px solid rgba(200, 170, 110, 0.25);
+}
+.arxiv-list__empty {
+  padding: 12px 0;
+  color: #a09b8c;
+  font: 12px Consolas, ui-monospace, monospace;
+}
+.arxiv-item {
+  padding: 8px 0 8px;
+  border-bottom: 1px solid rgba(200, 170, 110, 0.15);
+}
+.arxiv-item__top,
+.arxiv-item__bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.arxiv-item__bottom {
+  margin-top: 6px;
+}
+.arxiv-item__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #f0e6d2;
+  font: 13px Consolas, ui-monospace, monospace;
+  cursor: pointer;
+}
+.arxiv-item__name:hover {
+  color: #c8aa6e;
+}
+.arxiv-item__pick {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #a09b8c;
+  font: 11px Consolas, ui-monospace, monospace;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.arxiv-item__x {
+  height: 22px;
+  padding: 0 7px;
+}
+.arxiv-item__small {
+  height: 24px;
+  padding: 0 9px;
+}
+.arxiv-item__page {
+  min-width: 70px;
+}
+.arxiv-item__tr {
+  margin-left: auto;
+  height: 24px;
+}
+.arxiv-item__status {
+  margin-top: 5px;
+  color: #a09b8c;
+  font: 11px Consolas, ui-monospace, monospace;
+}
+.arxiv-item__status--bad {
+  color: #e08585;
+}
+.arxiv-bar__error--tight {
+  padding-top: 6px;
+  padding-bottom: 0;
+}
+
+/* The page number under a sheet in focus (inside the 3D scene, see ArxivPapers) */
+.arxiv-pagectl {
+  transition: opacity 0.2s;
+}
+.arxiv-pagectl__n {
+  text-align: center;
+  color: #f0e6d2;
+  font: 13px Consolas, ui-monospace, monospace;
+  text-shadow: 0 0 4px #010a13, 0 0 8px #010a13;
+}
+
+/* Dragging a row of the list of papers to reorder it */
+.arxiv-item {
+  cursor: grab;
+  touch-action: none;
+}
+.arxiv-item--drag {
+  opacity: 0.45;
+}
+.arxiv-item--before {
+  box-shadow: 0 -2px 0 #c8aa6e;
+}
+.arxiv-item--after {
+  box-shadow: 0 2px 0 #c8aa6e;
+}
+.arxiv-item__grip {
+  color: #a09b8c;
+  letter-spacing: -2px;
+  font: 13px Consolas, ui-monospace, monospace;
+  user-select: none;
 }

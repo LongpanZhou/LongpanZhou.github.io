@@ -587,3 +587,16 @@ html.hud-dragging * {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.15; }
 }
+
+/* The view is about to change (see utils/viewTransition.ts): everything of the old view fades out first.
+   The nav bar stays. */
+html.view-leaving [data-hud-draw]:not(.hex-nav):not(.hex-nav__links):not(.hex-nav__status),
+html.view-leaving .hud-box:not(.hex-nav),
+html.view-leaving .hud-draw__box:not(.hud-draw__box--nav),
+html.view-leaving .css3d-panel,
+html.view-leaving .arxiv-label,
+html.view-leaving .css3d-grip,
+html.view-leaving .arxiv-pagectl {
+  opacity: 0 !important;
+  transition: opacity 0.24s ease !important;
+}

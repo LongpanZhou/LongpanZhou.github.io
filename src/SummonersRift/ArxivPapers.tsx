@@ -1,122 +1,74 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject, ReactNode, Ref } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { loadPdfDocument } from '../pdf/pdfSource';
-import { extractBlocks, type Block } from '../pdf/layout';
-import { translateSegments } from '../pdf/translate';
-import { recordPageTime } from '../pdf/pageTimes';
-import { ARXIV_LAYOUT as L } from './arxivLayout';
-import { idleTranslation } from './arxivLayout';
-import type { ArxivCommands, ArxivTranslation, ArxivViewState } from './arxivLayout';
+import { ARXIV_LAYOUT as L, canMove, leftOutOfList, moveOf, raise, sheetBase, turnTo } from './arxivLayout';
+import { OVERLAY_LAYER } from './Css3dPanels';
+import type { ArxivViewState, PaperEntry, PaperInfo } from './arxivLayout';
+
+// The sheets are drawn in a second pass, on their own layer, so that they and the panels of the
+// scene can hide each other by depth (see Css3dPanels)
+const overlay = (m: THREE.Object3D | null) => {
+  m?.layers.set(OVERLAY_LAYER);
+};
+
+// Drawing on a focused sheet: the size of the drawing layer, and the pen colours (keys 1 to 4)
+const INK_WIDTH = 1100;
+const PEN_COLORS = ['#ff3b3b', '#ffd23f', '#35d0ff', '#4cd964'];
+
+interface Stroke {
+  color: string;
+  points: [number, number][];
+}
+interface Ink {
+  canvas: HTMLCanvasElement;
+  tex: THREE.CanvasTexture;
+  strokes: Stroke[]; // what is drawn, oldest first
+  undone: Stroke[]; // strokes taken back with Ctrl+Z, the latest last
+}
+
+function paintStroke(ctx: CanvasRenderingContext2D, s: Stroke) {
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = s.color;
+  ctx.beginPath();
+  s.points.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  // A stroke of one point is still a dot
+  if (s.points.length === 1) ctx.lineTo(s.points[0][0] + 0.01, s.points[0][1]);
+  ctx.stroke();
+}
+
+function repaint(it: Ink) {
+  const ctx = it.canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, it.canvas.width, it.canvas.height);
+  it.strokes.forEach((s) => paintStroke(ctx, s));
+  it.tex.needsUpdate = true;
+}
 
 // Width, in pixels, a page is drawn at. Wide enough to stay readable in the close-up comparison.
 const RENDER_WIDTH = 1400;
 
 interface PageTextures {
-  a: THREE.CanvasTexture; // the left paper: the page as it is
-  b: THREE.CanvasTexture; // the right paper: empty until the page has been translated
+  a: THREE.CanvasTexture; // the page as it is
   aspect: number; // page width / height
-  orig: HTMLCanvasElement; // the page as drawn, kept so the translation can be put on a fresh copy
-  scale: number; // the pixel scale the page was drawn at (blocks are in scale-1 units)
   pageNumber: number;
-  translated: boolean; // `b` shows a translation (otherwise it is empty)
 }
 
-interface Props {
-  target: string | null; // the PDF to show
+interface DocProps {
+  id: string; // the paper's id, which is also the id of its sheet
+  target: string; // the PDF to show
   page: number; // 1-based page number
-  // The camera's overview pose. The papers stand in front of it, facing it.
+  // The camera's overview pose. The sheets stand in front of it, facing it.
   anchor: { position: THREE.Vector3; yaw: number };
-  // The comparison and focus the papers and the camera follow (eased by the camera)
+  // The comparison and focus the sheets and the camera follow (eased by the camera)
   compare: MutableRefObject<ArxivViewState>;
-  onPages: (n: number) => void;
-  onError: (message: string | null) => void; // why the paper could not be shown, or null
-  onPick: (side: 'left' | 'right') => void; // a click on a paper or its label
-  // The controls ask for translations through `commands`; progress is reported back
-  commands: MutableRefObject<ArxivCommands>;
-  onTranslation: (t: ArxivTranslation) => void;
-}
-
-// ---------------------------------------------------------------------------------------------
-// Putting a translation on a page
-// ---------------------------------------------------------------------------------------------
-
-const FONT = (px: number) => `${px}px Georgia, "Times New Roman", serif`;
-
-// Breaks text into lines no wider than maxW. A word wider than a line (Chinese has no spaces) is
-// broken between characters.
-function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const lines: string[] = [];
-  let line = '';
-  for (const word of text.split(' ')) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width <= maxW) {
-      line = test;
-      continue;
-    }
-    if (line) {
-      lines.push(line);
-      line = '';
-    }
-    if (ctx.measureText(word).width <= maxW) {
-      line = word;
-      continue;
-    }
-    for (const ch of Array.from(word)) {
-      const t = line + ch;
-      if (!line || ctx.measureText(t).width <= maxW) line = t;
-      else {
-        lines.push(line);
-        line = ch;
-      }
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-// Covers one text block of the page with a white box and writes its translation in, shrinking the
-// text until it fits the box (the same rule the old DOM viewer used).
-function drawBlock(ctx: CanvasRenderingContext2D, b: Block, text: string, scale: number) {
-  const x = b.x0 * scale;
-  const y = b.y0 * scale;
-  const w = (b.x1 - b.x0) * scale;
-  const h = (b.y1 - b.y0) * scale;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x, y, w, h);
-  const base = Math.max(6, b.fontH * scale * 0.94);
-  let fs = base;
-  ctx.font = FONT(fs);
-  let lines = wrapLines(ctx, text, w);
-  for (let guard = 0; lines.length * fs * 1.16 > h + 1.5 && fs > base * 0.6 && guard < 30; guard++) {
-    fs *= 0.94;
-    ctx.font = FONT(fs);
-    lines = wrapLines(ctx, text, w);
-  }
-  ctx.fillStyle = '#000000';
-  ctx.textBaseline = 'top';
-  lines.forEach((l, i) => ctx.fillText(l, x, y + i * fs * 1.16));
-}
-
-// The page for the right paper: empty until its translation exists, then the page with the
-// translation on it (text that is not translated, like equations, keeps its own pixels)
-function composePage(orig: HTMLCanvasElement, scale: number, blocks?: Block[], texts?: string[]): HTMLCanvasElement {
-  const out = document.createElement('canvas');
-  out.width = orig.width;
-  out.height = orig.height;
-  const ctx = out.getContext('2d');
-  if (!ctx) return out;
-  if (!blocks || !texts) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, out.width, out.height);
-    return out;
-  }
-  ctx.drawImage(orig, 0, 0);
-  blocks.forEach((b, i) => texts[i] && drawBlock(ctx, b, texts[i], scale));
-  return out;
+  onInfo: (id: string, patch: Partial<PaperInfo>) => void; // pages and errors
+  onPick: (sheetId: string) => void; // a click on a sheet or its label
 }
 
 function makeTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
@@ -125,8 +77,6 @@ function makeTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
   t.anisotropy = 8;
   return t;
 }
-
-const noCommands: ArxivCommands = { translate: () => undefined, stop: () => undefined, reset: () => undefined };
 
 // ---------------------------------------------------------------------------------------------
 // One paper in the scene
@@ -140,6 +90,11 @@ function Paper({
   height,
   matRef,
   onPick,
+  sheetId,
+  page,
+  pageCount,
+  view,
+  yaw,
   children,
 }: {
   label: string;
@@ -148,13 +103,171 @@ function Paper({
   height: number;
   matRef: Ref<THREE.MeshBasicMaterial>;
   onPick: () => void;
+  page: number; // the page shown, which the drawing on the sheet belongs to
+  pageCount: number; // pages in the paper, 0 until it has loaded
+  sheetId: string; // the sheet's id, which is also the key of its move (see ArxivViewState)
+  view: MutableRefObject<ArxivViewState>;
+  yaw: number; // the overview's heading, which says which way is right
   children?: ReactNode; // anything else that belongs to this paper (the loading bar)
 }) {
+  const { camera } = useThree();
+  // A drag in progress: where the pointer first hit (on a plane facing the camera) and where the
+  // paper had been put
+  const drag = useRef<{ plane: THREE.Plane; start: THREE.Vector3; x: number; y: number; cx: number; cy: number } | null>(null);
+  const hit = useRef(new THREE.Vector3());
+
+  // The drawing on each page of this sheet, kept while the page is turned away from and back to. It is
+  // kept as strokes, so the last one can be taken back (Ctrl+Z) and put back (Ctrl+Y).
+  const ink = useRef(new Map<number, Ink>());
+  const [, setInkVersion] = useState(0);
+  const stroke = useRef<Stroke | null>(null); // the stroke being drawn
+  const pen = useRef(0);
+  const inkNow = ink.current.get(page);
+  useEffect(() => {
+    const store = ink.current;
+    return () => store.forEach((i) => i.tex.dispose());
+  }, []);
+  const strokeTo = (uv: THREE.Vector2) => {
+    let it = ink.current.get(page);
+    if (!it) {
+      const canvas = document.createElement('canvas');
+      canvas.width = INK_WIDTH;
+      canvas.height = Math.round((INK_WIDTH * height) / width);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      it = { canvas, tex, strokes: [], undone: [] };
+      ink.current.set(page, it);
+      setInkVersion((v) => v + 1);
+    }
+    const x = uv.x * it.canvas.width;
+    const y = (1 - uv.y) * it.canvas.height;
+    if (!stroke.current) {
+      stroke.current = { color: PEN_COLORS[pen.current], points: [] };
+      it.strokes.push(stroke.current);
+      it.undone = []; // drawing something new ends the redo
+    }
+    const points = stroke.current.points;
+    const from = points[points.length - 1] ?? [x, y];
+    points.push([x, y]);
+    const ctx = it.canvas.getContext('2d');
+    if (!ctx) return;
+    paintStroke(ctx, { color: stroke.current.color, points: [from, [x + 0.01, y]] }); // only the new bit
+    it.tex.needsUpdate = true;
+  };
+  // While this sheet is in focus: Ctrl+Z takes the last stroke back, Ctrl+Y (or Ctrl+Shift+Z) puts it
+  // back, X wipes the page's drawing, and 1 to 4 pick the pen
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const v = view.current;
+      if (v.focusId !== sheetId || v.focusTarget === 0 || (v.lifts[sheetId] ?? 0) < 0.5) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (/^(input|textarea|select)$/i.test(t.tagName) || t.isContentEditable)) return;
+      const k = e.key.toLowerCase();
+      const it = ink.current.get(page);
+      if (e.ctrlKey || e.metaKey) {
+        if (!it) return;
+        if (k === 'z' && !e.shiftKey) {
+          const last = it.strokes.pop();
+          if (last) it.undone.push(last);
+        } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+          const back = it.undone.pop();
+          if (back) it.strokes.push(back);
+        } else return;
+        e.preventDefault();
+        repaint(it);
+        return;
+      }
+      if (k === 'x') {
+        if (it) {
+          it.strokes = [];
+          it.undone = [];
+          repaint(it);
+        }
+      } else if (k >= '1' && k <= String(PEN_COLORS.length)) {
+        pen.current = Number(k) - 1;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view, sheetId, page]);
+
+  // The page number under the sheet shows while it is in focus
+  const pageControls = useRef<HTMLDivElement>(null);
+  useFrame(() => {
+    const el = pageControls.current;
+    if (!el) return;
+    const v = view.current;
+    el.style.opacity = String(v.focusId === sheetId && v.focusTarget !== 0 ? (v.lifts[sheetId] ?? 0) : 0);
+  });
+
   return (
     <group>
       <mesh
-        onClick={(e) => {
+        ref={(m) => {
+          overlay(m);
+          if (m) view.current.meshes[sheetId] = m;
+          else delete view.current.meshes[sheetId];
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0 || leftOutOfList(view.current, sheetId)) return;
+          const v = view.current;
+          raise(v, sheetId); // touching a sheet brings it to the front
+          // On a sheet in focus a drag draws (and the camera is left alone)
+          if (v.focusTarget !== 0 && v.focusId === sheetId && (v.lifts[sheetId] ?? 0) > 0.9) {
+            e.stopPropagation();
+            (e.target as unknown as Element).setPointerCapture(e.pointerId);
+            v.dragging = true;
+            stroke.current = null;
+            if (e.uv) strokeTo(e.uv);
+            return;
+          }
+          if (!canMove(v)) return;
           e.stopPropagation();
+          (e.target as unknown as Element).setPointerCapture(e.pointerId);
+          const mv = moveOf(view.current, sheetId);
+          const normal = camera.getWorldDirection(new THREE.Vector3());
+          drag.current = {
+            plane: new THREE.Plane().setFromNormalAndCoplanarPoint(normal, e.point),
+            start: e.point.clone(),
+            x: mv.x,
+            y: mv.y,
+            cx: e.nativeEvent.clientX,
+            cy: e.nativeEvent.clientY,
+          };
+        }}
+        onPointerMove={(e) => {
+          if (stroke.current) {
+            if (e.uv) strokeTo(e.uv);
+            return;
+          }
+          const d = drag.current;
+          if (!d) return;
+          // A press that has not moved yet is still a click
+          if (!view.current.dragging && Math.hypot(e.nativeEvent.clientX - d.cx, e.nativeEvent.clientY - d.cy) < 5) return;
+          view.current.dragging = true;
+          if (!e.ray.intersectPlane(d.plane, hit.current)) return;
+          hit.current.sub(d.start);
+          const mv = moveOf(view.current, sheetId);
+          mv.x = d.x + hit.current.x * Math.cos(yaw) - hit.current.z * Math.sin(yaw); // along the overview's right
+          mv.y = d.y + hit.current.y;
+        }}
+        onPointerUp={(e) => {
+          if (stroke.current) {
+            stroke.current = null;
+            view.current.dragging = false;
+            (e.target as unknown as Element).releasePointerCapture?.(e.pointerId);
+            return;
+          }
+          if (!drag.current) return;
+          drag.current = null;
+          view.current.dragging = false;
+          (e.target as unknown as Element).releasePointerCapture?.(e.pointerId);
+        }}
+        onClick={(e) => {
+          if (leftOutOfList(view.current, sheetId)) return;
+          e.stopPropagation();
+          // The click that ends a drag does not focus the paper
+          if (e.delta > 4) return;
           onPick();
         }}
       >
@@ -172,8 +285,50 @@ function Paper({
           side={THREE.DoubleSide}
         />
       </mesh>
+      {inkNow && (
+        <mesh position={[0, 0, 0.012]} renderOrder={2} raycast={() => null} ref={overlay}>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial map={inkNow.tex} transparent depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+      {/* The page number, under the sheet while it is in focus (the mouse wheel turns the page) */}
+      <Html position={[0, -height / 2 - 1.1, 0]} center zIndexRange={[990, 900]} style={{ pointerEvents: 'none' }}>
+        <div ref={pageControls} className="arxiv-pagectl" style={{ opacity: 0 }}>
+          <div className="arxiv-pagectl__n">
+            {page} / {pageCount || '–'}
+          </div>
+        </div>
+      </Html>
+      {/* The grip above the paper: dragging it sideways turns the paper */}
+      <Html position={[0, height / 2 + 2.7, 0]} center zIndexRange={[990, 900]} style={{ pointerEvents: 'none' }}>
+        <div
+          className="css3d-grip css3d-grip--paper"
+          data-rotate
+          style={{ pointerEvents: 'auto' }}
+          onPointerDown={(e) => {
+            if (e.button !== 0 || !canMove(view.current)) return;
+            e.preventDefault();
+            const mv = moveOf(view.current, sheetId);
+            const startYaw = mv.yaw;
+            const downX = e.clientX;
+            const onTurn = (ev: PointerEvent) => {
+              view.current.dragging = true;
+              mv.yaw = turnTo(startYaw, ev.clientX - downX);
+            };
+            const onEnd = () => {
+              window.removeEventListener('pointermove', onTurn);
+              window.removeEventListener('pointerup', onEnd);
+              window.removeEventListener('pointercancel', onEnd);
+              view.current.dragging = false;
+            };
+            window.addEventListener('pointermove', onTurn);
+            window.addEventListener('pointerup', onEnd);
+            window.addEventListener('pointercancel', onEnd);
+          }}
+        />
+      </Html>
       {/* Below the HUD boxes (z-index 1000), so a label never covers one */}
-      <Html position={[0, height / 2 + 1.1, 0]} center zIndexRange={[900, 0]} style={{ pointerEvents: 'none' }}>
+      <Html position={[0, height / 2 + 1.1, 0]} center zIndexRange={[990, 900]} style={{ pointerEvents: 'none' }}>
         <div className="arxiv-label" onClick={onPick}>
           {label}
         </div>
@@ -183,101 +338,40 @@ function Paper({
   );
 }
 
-/**
- * The translation's loading bar, in the scene under the right paper: a track, a bar that fills as
- * pages are translated, and a label. It is only there while a translation is running.
- */
-function TranslationBar({ progress, width, height }: { progress: ArxivTranslation; width: number; height: number }) {
-  const fill = useRef<THREE.Mesh>(null);
-  const shown = useRef(0); // the fill, eased so it grows smoothly instead of jumping a page at a time
-  const ratio = progress.total ? progress.done / progress.total : 0;
-  const running = progress.state === 'running';
-
-  useFrame((_, dt) => {
-    if (!running) shown.current = 0;
-    else shown.current += (ratio - shown.current) * Math.min(1, dt * 5);
-    const f = fill.current;
-    if (!f) return;
-    const s = Math.max(shown.current, 0.002);
-    f.scale.x = s;
-    f.position.x = -width / 2 + (width * s) / 2;
-  });
-
-  if (!running) return null;
-  return (
-    // Inside the page's bottom margin, so it stays clear of the controls standing under the papers
-    <group position={[0, -height / 2 + 0.7, 0.03]}>
-      <mesh position={[0, 0, -0.01]}>
-        <planeGeometry args={[width + 0.16, 0.66]} />
-        <meshBasicMaterial color="#c8aa6e" toneMapped={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh>
-        <planeGeometry args={[width, 0.5]} />
-        <meshBasicMaterial color="#060e1c" toneMapped={false} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh ref={fill} position={[0, 0, 0.01]}>
-        <planeGeometry args={[width, 0.38]} />
-        <meshBasicMaterial color="#0ac8ff" toneMapped={false} side={THREE.DoubleSide} />
-      </mesh>
-      <Html position={[width * 0.22, -1.7, 0]} center zIndexRange={[900, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="arxiv-label">
-          TRANSLATING {progress.done} / {progress.total}
-        </div>
-      </Html>
-    </group>
-  );
-}
+const shortName = (target: string) => target.replace(/^https?:\/\//i, '').split('/').pop() || target;
 
 /**
- * The arXiv view's two papers, built inside the 3D scene: the original on the left and the
- * translation on the right, which is an empty page until its translation exists. In the
- * overview they stand a little apart, turned slightly toward each other, in front of the camera;
- * the comparison pulls them edge to edge, flat to the camera, while the camera moves in (see
- * CameraController). Clicking one focuses the camera on it.
+ * One paper of the list: a sheet showing one page. Sheets stand in a row in front of the camera and can
+ * be moved, turned, drawn on, focused and compared (see CameraController and sheetBase).
  */
-export default function ArxivPapers({
-  target,
-  page,
-  anchor,
-  compare,
-  onPages,
-  onError,
-  onPick,
-  commands,
-  onTranslation,
-}: Props) {
+function PaperDoc({ id, target, page, anchor, compare, onInfo, onPick }: DocProps) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [tex, setTex] = useState<PageTextures | null>(null);
-  const [transVersion, setTransVersion] = useState(0); // bumped whenever the translations change
-  const [progress, setProgress] = useState<ArxivTranslation>(idleTranslation); // what the loading bar shows
 
-  const pageRef = useRef(page);
-  pageRef.current = page;
-
-  // The translation work: what has been translated, the text blocks of each page, and the request
-  // in flight. All of it belongs to one document and one language.
-  const work = useRef<{
-    texts: Record<number, string[]>;
-    blocks: Record<number, Block[]>;
-    pending: Record<number, Promise<Block[]>>;
-    abort: AbortController | null;
-  }>({ texts: {}, blocks: {}, pending: {}, abort: null });
-
-  const left = useRef<THREE.Group>(null);
-  const right = useRef<THREE.Group>(null);
-  const matLeft = useRef<THREE.MeshBasicMaterial>(null);
-  const matRight = useRef<THREE.MeshBasicMaterial>(null);
+  const group = useRef<THREE.Group>(null);
+  const mat = useRef<THREE.MeshBasicMaterial>(null);
   const fade = useRef(0);
+  const leave = useRef(0); // 0..1, how far the sheet has faded for a change of view (see viewTransition.ts)
+  // Where the sheet's place in the row is drawn from: eased, so the row glides when the order changes
+  const shown = useRef(Number.NaN);
+
+  // Forget the sheet's place when the paper goes
+  useEffect(
+    () => () => {
+      const v = compare.current;
+      delete v.moves[id];
+      delete v.widths[id];
+      delete v.meshes[id];
+      v.stack = v.stack.filter((x) => x !== id);
+      delete v.lifts[id];
+      delete v.ranks[id];
+    },
+    [compare, id],
+  );
 
   // Load the document
   useEffect(() => {
-    onPages(0);
-    onError(null);
-    if (!target) {
-      setDoc(null);
-      onError('That address is not a PDF link.');
-      return;
-    }
+    onInfo(id, { pages: 0, error: null });
     let cancelled = false;
     setDoc(null);
     const task = loadPdfDocument(target);
@@ -285,116 +379,18 @@ export default function ArxivPapers({
       .then((d) => {
         if (cancelled) return;
         setDoc(d);
-        onPages(d.numPages);
+        onInfo(id, { pages: d.numPages });
       })
       .catch((err: unknown) => {
-        if (!cancelled) onError(err instanceof Error ? err.message : 'The paper could not be loaded.');
+        if (!cancelled) onInfo(id, { error: err instanceof Error ? err.message : 'The paper could not be loaded.' });
       });
     return () => {
       cancelled = true;
       task.destroy();
     };
-  }, [target, onPages, onError]);
+  }, [id, target, onInfo]);
 
-  // The translation commands. A new document starts with nothing translated.
-  useEffect(() => {
-    const w = work.current;
-    const report = (t: ArxivTranslation) => {
-      setProgress(t);
-      onTranslation(t);
-    };
-    w.abort?.abort();
-    w.texts = {};
-    w.blocks = {};
-    w.pending = {};
-    w.abort = null;
-    setTransVersion((v) => v + 1);
-    report({ state: 'idle', done: 0, total: doc?.numPages ?? 0, error: null, lang: '' });
-    if (!doc) {
-      commands.current = noCommands;
-      return;
-    }
-
-    // The text blocks of a page, found once
-    const blocksFor = (n: number): Promise<Block[]> => {
-      w.pending[n] ??= doc.getPage(n).then(async (p) => {
-        const found = await extractBlocks(p);
-        w.blocks[n] = found;
-        return found;
-      });
-      return w.pending[n];
-    };
-
-    const stop = () => {
-      w.abort?.abort();
-      w.abort = null;
-    };
-
-    const translate = async (lang: string) => {
-      stop();
-      w.texts = {};
-      setTransVersion((v) => v + 1);
-      const controller = new AbortController();
-      w.abort = controller;
-      const total = doc.numPages;
-      let done = 0;
-      report({ state: 'running', done, total, error: null, lang });
-      // The page being looked at first, then the ones after it, then the ones before it
-      const start = Math.min(Math.max(pageRef.current, 1), total);
-      const order = Array.from({ length: total }, (_, i) => ((start - 1 + i) % total) + 1);
-      try {
-        for (const n of order) {
-          if (controller.signal.aborted) return;
-          const blocks = await blocksFor(n);
-          // Only prose is translated: equations, tables and figures keep their own pixels
-          const idxs = blocks.map((b, k) => (b.translatable ? k : -1)).filter((k) => k >= 0);
-          const started = performance.now();
-          const parts = await translateSegments(
-            idxs.map((k) => blocks[k].text),
-            lang,
-            'auto',
-            controller.signal,
-          );
-          if (idxs.length) recordPageTime((performance.now() - started) / 1000);
-          const full = blocks.map(() => '');
-          idxs.forEach((k, j) => {
-            full[k] = parts[j] ?? '';
-          });
-          w.texts[n] = full;
-          done += 1;
-          report({ state: 'running', done, total, error: null, lang });
-          setTransVersion((v) => v + 1);
-        }
-        report({ state: 'done', done, total, error: null, lang });
-      } catch (err: unknown) {
-        if (controller.signal.aborted) return;
-        report({
-          state: 'error',
-          done,
-          total,
-          error: err instanceof Error ? err.message : String(err),
-          lang,
-        });
-      }
-    };
-
-    commands.current = {
-      translate: (lang) => void translate(lang),
-      stop,
-      reset: () => {
-        stop();
-        w.texts = {};
-        setTransVersion((v) => v + 1);
-        report({ state: 'idle', done: 0, total: doc.numPages, error: null, lang: '' });
-      },
-    };
-    return () => {
-      stop();
-      commands.current = noCommands;
-    };
-  }, [doc, commands, onTranslation]);
-
-  // Draw the page and turn it into the two textures
+  // Draw the page and turn it into a texture
   useEffect(() => {
     if (!doc) return;
     let cancelled = false;
@@ -405,8 +401,7 @@ export default function ArxivPapers({
       .then((p) => {
         if (cancelled) return undefined;
         const base = p.getViewport({ scale: 1 });
-        const scale = RENDER_WIDTH / base.width;
-        const viewport = p.getViewport({ scale });
+        const viewport = p.getViewport({ scale: RENDER_WIDTH / base.width });
         const canvas = document.createElement('canvas');
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
@@ -415,18 +410,7 @@ export default function ArxivPapers({
         renderTask = p.render({ canvasContext: ctx, viewport });
         return renderTask.promise.then(() => {
           if (cancelled) return;
-          const texts = work.current.texts[n];
-          const blocks = work.current.blocks[n];
-          const hasTranslation = !!texts && !!blocks;
-          setTex({
-            a: makeTexture(canvas),
-            b: makeTexture(composePage(canvas, scale, hasTranslation ? blocks : undefined, texts)),
-            aspect: canvas.width / canvas.height,
-            orig: canvas,
-            scale,
-            pageNumber: n,
-            translated: hasTranslation,
-          });
+          setTex({ a: makeTexture(canvas), aspect: canvas.width / canvas.height, pageNumber: n });
           fade.current = 0;
         });
       })
@@ -437,27 +421,10 @@ export default function ArxivPapers({
     };
   }, [doc, page]);
 
-  // When the translations change, the right paper is drawn again from the page as it was
-  useEffect(() => {
-    if (!tex) return;
-    const texts = work.current.texts[tex.pageNumber];
-    const blocks = work.current.blocks[tex.pageNumber];
-    const hasTranslation = !!texts && !!blocks;
-    if (!hasTranslation && !tex.translated) return;
-    setTex({
-      ...tex,
-      b: makeTexture(composePage(tex.orig, tex.scale, hasTranslation ? blocks : undefined, texts)),
-      translated: hasTranslation,
-    });
-    // Only a change of the translations redraws the paper; the page itself is drawn above
-  }, [transVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Free a texture once it is no longer on screen: after the next one has replaced it (these
-  // cleanups run after that commit), or when the view goes away
+  // Free a texture once it is no longer on screen: after the next one has replaced it (this cleanup
+  // runs after that commit), or when the view goes away
   const texA = tex?.a;
-  const texB = tex?.b;
   useEffect(() => () => texA?.dispose(), [texA]);
-  useEffect(() => () => texB?.dispose(), [texB]);
 
   const aspect = tex?.aspect ?? 8.5 / 11;
   const height = L.paperHeight;
@@ -466,60 +433,88 @@ export default function ArxivPapers({
 
   useFrame((_, dt) => {
     const view = compare.current;
-    view.paperWidth = width; // the camera centres on a paper by this
+    view.widths[id] = width;
     const t = view.t;
-    const gap = THREE.MathUtils.lerp(L.gap, L.compareGap, t);
-    // A paper that is being focused (or compared) turns flat to the camera; the other keeps its angle
-    const focusLeft = view.fa * Math.max(-view.f, 0);
-    const focusRight = view.fa * Math.max(view.f, 0);
     const toeBase = THREE.MathUtils.degToRad(L.toeDeg);
-    const toeLeft = toeBase * (1 - Math.max(t, focusLeft));
-    const toeRight = toeBase * (1 - Math.max(t, focusRight));
     // The camera looks along (-sin yaw, 0, -cos yaw); its right is (cos yaw, 0, -sin yaw)
     const sin = Math.sin(yaw);
     const cos = Math.cos(yaw);
     const cx = position.x - sin * L.distance;
     const cz = position.z - cos * L.distance;
-    const off = (width + gap) / 2;
-    if (left.current) {
-      left.current.position.set(cx - cos * off, position.y, cz + sin * off);
-      left.current.rotation.y = yaw + toeLeft;
-    }
-    if (right.current) {
-      right.current.position.set(cx + cos * off, position.y, cz - sin * off);
-      right.current.rotation.y = yaw - toeRight;
-    }
-    // A new page fades in
+    // A new page fades in, and everything fades out when the view is about to change
     fade.current = Math.min(1, fade.current + dt * 1.6);
-    // The paper that is not being focused dims
-    if (matLeft.current) matLeft.current.opacity = fade.current * (1 - 0.6 * focusRight);
-    if (matRight.current) matRight.current.opacity = fade.current * (1 - 0.6 * focusLeft);
+    const leaving = document.documentElement.classList.contains('view-leaving') ? 1 : 0;
+    leave.current += (leaving - leave.current) * (1 - Math.exp(-12 * Math.min(dt, 0.1)));
+
+    const g = group.current;
+    if (!g) return;
+    // The spread-out place, or in the list (t, eased by the camera, is how far the list is) the place in
+    // the long row. A sheet glides there when the order or the number of sheets changes.
+    const base = sheetBase(view, id);
+    const listed = view.listOrder.includes(id);
+    const baseX = listed ? THREE.MathUtils.lerp(base.x, sheetBase(view, id, L.listGap, view.listOrder).x, t) : base.x;
+    shown.current = Number.isNaN(shown.current) ? baseX : shown.current + (baseX - shown.current) * (1 - Math.exp(-8 * Math.min(dt, 0.1)));
+    const mv = moveOf(view, id);
+    const focusMine = view.lifts[id] ?? 0; // eased per sheet, so a switch of focus does not jump
+    const keep = 1 - t; // where the user put the sheet counts fully until the list takes the sheets
+    const x = shown.current + mv.sx * keep;
+    // A sheet in focus comes forward, and the ones touched last stand in front
+    const lift = 0.9 * focusMine + 0.04 * (view.ranks[id] ?? 0);
+    g.visible = listed || t < 0.98;
+    g.position.set(cx + cos * x + sin * lift, position.y + mv.sy * keep, cz - sin * x + cos * lift);
+    // In the list the sheets are flat to the camera, side by side
+    g.rotation.y = yaw + toeBase * base.k * (1 - Math.max(t, focusMine)) + mv.syaw * keep;
+    if (mat.current) {
+      // The other sheets dim while one is focused
+      let dimFocus = 0;
+      for (const o of view.order) if (o !== id) dimFocus = Math.max(dimFocus, view.lifts[o] ?? 0);
+      // A sheet that was not chosen for the list fades away as the list comes
+      mat.current.opacity = fade.current * (1 - 0.6 * dimFocus) * (listed ? 1 : 1 - t) * (1 - leave.current);
+    }
   });
 
   return (
+    <group ref={group}>
+      <Paper
+        label={shortName(target)}
+        map={tex?.a ?? null}
+        width={width}
+        height={height}
+        matRef={mat}
+        onPick={() => onPick(id)}
+        sheetId={id}
+        page={tex?.pageNumber ?? page}
+        pageCount={doc?.numPages ?? 0}
+        view={compare}
+        yaw={yaw}
+      />
+    </group>
+  );
+}
+
+/**
+ * The arXiv view's papers, built inside the 3D scene: every paper of the list is a sheet in a row in
+ * front of the camera. Each sheet can be dragged, turned, drawn on when focused, and compared with
+ * another.
+ */
+export default function ArxivPapers({
+  papers,
+  anchor,
+  compare,
+  onInfo,
+  onPick,
+}: {
+  papers: PaperEntry[];
+  anchor: { position: THREE.Vector3; yaw: number };
+  compare: MutableRefObject<ArxivViewState>;
+  onInfo: (id: string, patch: Partial<PaperInfo>) => void;
+  onPick: (sheetId: string) => void;
+}) {
+  return (
     <>
-      <group ref={left}>
-        <Paper
-          label="ORIGINAL"
-          map={tex?.a ?? null}
-          width={width}
-          height={height}
-          matRef={matLeft}
-          onPick={() => onPick('left')}
-        />
-      </group>
-      <group ref={right}>
-        <Paper
-          label="TRANSLATED"
-          map={tex?.b ?? null}
-          width={width}
-          height={height}
-          matRef={matRight}
-          onPick={() => onPick('right')}
-        >
-          <TranslationBar progress={progress} width={width} height={height} />
-        </Paper>
-      </group>
+      {papers.map((p) => (
+        <PaperDoc key={p.id} id={p.id} target={p.target} page={p.page} anchor={anchor} compare={compare} onInfo={onInfo} onPick={onPick} />
+      ))}
     </>
   );
 }

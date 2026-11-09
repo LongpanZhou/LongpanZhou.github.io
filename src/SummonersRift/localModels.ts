@@ -1,9 +1,19 @@
-// Models from the local models folder (served by the dev server only; see vite.config.ts).
+// Models for the editor's inventory.
+//
+// On the developer's machine they come from the local models folder, through the dev server (see
+// vite.config.ts). On the live site there is no such folder: the list, a picture of each model and the
+// models themselves are in the model pack, a repository served through the jsDelivr CDN. Only the
+// pictures and the list are loaded up front. A model is downloaded when someone drops it on the map.
+// The few that already ship with the site (public/models/rift) load from the site itself.
+import { BUNDLED_MODELS } from './modelPack.generated'
+
+export const PACK_URL = 'https://cdn.jsdelivr.net/gh/LongpanZhou/rift-models@main/'
 
 export interface LocalModel {
   path: string // relative to the folder, with forward slashes
   size: number
   side?: 'order' | 'chaos' // read from inside the file by the dev route
+  thumb?: string // a picture of the model (live site only: in development it is drawn from the model)
 }
 
 export interface DescribedModel {
@@ -15,9 +25,41 @@ export interface DescribedModel {
   height: number // how tall it is made in the scene, in world units; resizing a type changes it
 }
 
-// In development the files come from the local folder through the dev route. In a build they are the
-// copies in public/models/rift, which is flat: just the file name.
-const FILE_URL = import.meta.env.DEV ? '/__local-models/file/' : import.meta.env.BASE_URL + 'models/rift/'
+// Where a model is loaded from. In development: the local folder, through the dev route. On the live
+// site: the copy that ships with the site if there is one (public/models/rift, flat: just the file name),
+// otherwise the model pack.
+export const isBundled = (path: string) => BUNDLED_MODELS.has(path.split('/').pop() ?? path)
+function modelUrl(path: string): string {
+  if (import.meta.env.DEV) return '/__local-models/file/' + path.split('/').map(encodeURIComponent).join('/')
+  const file = encodeURIComponent(path.split('/').pop() ?? path)
+  return isBundled(path) ? `${import.meta.env.BASE_URL}models/rift/${file}` : `${PACK_URL}models/${file}`
+}
+
+// How big each model in the list is, so a download can show how far it has got
+const knownSizes = new Map<string, number>()
+
+/** Downloads a model ahead of its use, reporting how far it has got (0..1). The browser keeps it, so the
+ *  loader that places it on the map does not fetch it again. Returns false if it could not be fetched. */
+export async function downloadModel(path: string, onProgress: (fraction: number) => void): Promise<boolean> {
+  try {
+    const response = await fetch(modelUrl(path))
+    if (!response.ok || !response.body) return false
+    const total = knownSizes.get(path) ?? (Number(response.headers.get('content-length')) || 0)
+    const reader = response.body.getReader()
+    let got = 0
+    onProgress(0)
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      got += value.length
+      if (total) onProgress(Math.min(0.99, got / total))
+    }
+    onProgress(1)
+    return true
+  } catch {
+    return false
+  }
+}
 
 // Works out a name, a group and a sensible height from the file's path alone.
 export function describeLocalModel(path: string, side?: 'order' | 'chaos'): DescribedModel {
@@ -56,14 +98,24 @@ export function describeLocalModel(path: string, side?: 'order' | 'chaos'): Desc
     label,
     team,
     group,
-    url: FILE_URL + (import.meta.env.DEV ? path.split('/') : [file]).map(encodeURIComponent).join('/'),
+    url: modelUrl(path),
     height,
   }
 }
 
-// Every model in the folder. Empty when the dev route is not there (a build, or no folder).
+// Every model that can be put on the map. In development: the models folder (the dev route). On the live
+// site: the model pack's list. Empty when neither can be reached.
 export async function fetchLocalModels(): Promise<LocalModel[]> {
   try {
+    if (!import.meta.env.DEV) {
+      const response = await fetch(`${PACK_URL}models.json`)
+      if (!response.ok) return []
+      const pack = (await response.json()) as { models?: { path: string; size: number; side?: 'order' | 'chaos'; thumb?: string | null }[] }
+      return (pack.models ?? []).map((m) => {
+        knownSizes.set(m.path, m.size)
+        return { path: m.path, size: m.size, side: m.side, thumb: m.thumb ? PACK_URL + m.thumb : undefined }
+      })
+    }
     const response = await fetch('/__local-models/list')
     if (!response.ok) return []
     const list: unknown = await response.json()

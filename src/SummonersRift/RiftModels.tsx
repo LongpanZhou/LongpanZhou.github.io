@@ -1,17 +1,19 @@
 import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
-import { Html, useAnimations, useGLTF } from '@react-three/drei'
+import { Html, Line, useAnimations, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as cloneRig } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { BLUE, GOLD, GROUND_Y, LANES, NEXUS_AT, NEXUS_TURRET_SPOTS, RED, TOWER_SPOTS, place } from './riftLayout'
 import type { Fraction, Team } from './riftLayout'
-import { describeLocalModel, fetchLocalModels } from './localModels'
-import { DEFAULT_ADDED, DEFAULT_DELETED, DEFAULT_LOCKED, DEFAULT_NAMES, DEFAULT_OVERRIDES, DEFAULT_TYPE_SCALES } from './riftLayoutDefault'
+import { describeLocalModel, downloadModel, fetchLocalModels, isBundled } from './localModels'
+import { clipControls, hasStates, isEpicModel, isRevealed, joinGroup, kindsOf, leaveGroup, movedParts, onClipsChange, onRevealed, planClips, registerClips, sameClip, showOfKind, showParts, timeScaleFor, unregisterClips } from './monsterClips'
+import type { ClipControl, GroupMember } from './monsterClips'
+import { DEFAULT_ADDED, DEFAULT_DELETED, DEFAULT_LOCKED, DEFAULT_NAMES, DEFAULT_OVERRIDES, DEFAULT_PATHS, DEFAULT_TYPE_SCALES } from './riftLayoutDefault'
 import { BAKED_POSES } from './riftPoses'
-import { EDITOR_ENABLED, IS_LOCAL, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, loadOverrides, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, saveTypeScales } from './riftEdit'
-import type { AddedEntry, InventoryTile, Pose } from './riftEdit'
+import { EDITOR_ENABLED, IS_LOCAL, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
+import type { AddedEntry, InventoryTile, PathPoints, Pose } from './riftEdit'
 import './RiftLock.css'
 
 // Turrets, nexus and monsters come from League of Legends game assets in public/models/rift.
@@ -108,9 +110,10 @@ const BARON_PIT: PitPlacement[][] = [
   [{ id: 'pit-Baron Nashor', monster: BARON, x: -49.07, z: 102.99, yawDeg: -196.7, y: -2.7 }],
   [{ id: 'pit-Rift Herald', monster: RIFT_HERALD, x: -49.28, z: 104.08, yawDeg: 148.5, y: -2 }],
   [
-    { id: 'pit-Void grubs-1', monster: VOID_GRUBS, x: -48.04, z: 107.52, yawDeg: -138.3, y: -2 },
-    { id: 'pit-Void grubs-2', monster: VOID_GRUBS, x: -47.86, z: 102.31, yawDeg: -33.3, y: -2 },
-    { id: 'pit-Void grubs-3', monster: VOID_GRUBS, x: -52.38, z: 103.97, yawDeg: 71.7, y: -2 },
+    // The hand-placed spots of the grubs round the spot where Baron stands
+    { id: 'pit-Void grubs-1', monster: VOID_GRUBS, x: -48.21, z: 107.08, yawDeg: -180, y: -2 },
+    { id: 'pit-Void grubs-2', monster: VOID_GRUBS, x: -53.13, z: 103.9, yawDeg: 90, y: -2 },
+    { id: 'pit-Void grubs-3', monster: VOID_GRUBS, x: -47.76, z: 101.43, yawDeg: -30, y: -2 },
   ],
 ]
 
@@ -171,13 +174,18 @@ function poseAt(p: THREE.Vector3, yaw: number): Pose {
   return { x: p.x, z: p.z, yaw }
 }
 
+// The pit monsters are named the way the rest are: after their model's file, "pit_baron_nashor". The grubs,
+// which come three together, are numbered.
+const pitName = (pit: PitPlacement) =>
+  `pit_${pit.monster.file.replace(/\.glb$/i, '')}${/-(\d+)$/.test(pit.id) ? `_${pit.id.match(/-(\d+)$/)![1]}` : ''}`
+
 const ITEMS: Item[] = (() => {
   const items: Item[] = []
   for (const team of ['blue', 'red'] as Team[]) {
     TOWER_SPOTS.forEach((spot, i) => {
       items.push({
         id: `${team}-tower-${i}`,
-        name: `turrets (${team}) ${i + 1}`,
+        name: `${team}_tower_${i + 1}`,
         kind: 'tower',
         team,
         height: TOWER_HEIGHT,
@@ -189,7 +197,7 @@ const ITEMS: Item[] = (() => {
       const p = place(team, spot)
       items.push({
         id: `${team}-turret-${i}`,
-        name: `turrets (${team}) guard ${i + 1}`,
+        name: `${team}_nexus_turret_${i + 1}`,
         kind: 'turret',
         team,
         height: TURRET_HEIGHT,
@@ -200,7 +208,7 @@ const ITEMS: Item[] = (() => {
     const nexusAt = place(team, NEXUS_AT)
     items.push({
       id: `${team}-nexus`,
-      name: `nexus (${team})`,
+      name: `${team}_nexus`,
       kind: 'nexus',
       team,
       height: NEXUS_HEIGHT,
@@ -213,7 +221,7 @@ const ITEMS: Item[] = (() => {
       const p = place(team, at)
       items.push({
         id: `camp-${monster.name}-${team}`,
-        name: `${monster.file.replace(/\.glb$/i, '')} (${team} side)`,
+        name: `${team}_${monster.file.replace(/\.glb$/i, '').replace('blue_sentinel', 'blue_buff').replace('red_brambleback', 'red_buff')}`,
         kind: 'monster',
         height: monster.height,
         pose: poseAt(p, facingToward(p, MAP_CENTER)),
@@ -225,7 +233,7 @@ const ITEMS: Item[] = (() => {
   for (const pit of PIT_ITEMS) {
     items.push({
       id: pit.id,
-      name: pit.monster.name,
+      name: pitName(pit),
       kind: 'monster',
       height: pit.monster.height,
       pose: { x: pit.x, z: pit.z, yaw: (pit.yawDeg * Math.PI) / 180, y: pit.y },
@@ -476,38 +484,245 @@ function fittedInstance(url: string, source: THREE.Object3D, height: number, tin
     template = fitToHeight(source, height, tint)
     fitCache.set(key, template)
   }
-  return cloneRig(template)
+  const copy = cloneRig(template)
+  showParts(copy, null) // a building's other states lie on top of its standing one: see monsterClips.ts
+  return copy
 }
 
 // A static League model, fitted to `height` and tinted when a team colour is given.
-function FittedModel({ url, height, tint }: { url: string; height: number; tint?: string }) {
+function FittedModel({ url, height, tint, entityId }: { url: string; height: number; tint?: string; entityId?: string }) {
   const gltf = useGLTF(url)
   const scene = useMemo(() => fittedInstance(url, gltf.scene, height, tint), [url, gltf, height, tint])
-  return <primitive object={scene} />
+  const group = useRef<THREE.Group>(null)
+  const pop = usePop(group, true) // it grows in when the site has loaded
+  useEffect(() => {
+    if (!entityId) return
+    const control: ClipControl = {
+      names: [],
+      play: () => {},
+      stop: () => {},
+      death: () => {
+        if (control.dead) return null
+        control.dead = true
+        return pop.die() // and shrinks away when it is deleted
+      },
+      dead: false,
+    }
+    registerClips(entityId, control)
+    return () => unregisterClips(entityId, control)
+  }, [entityId, pop])
+  return (
+    <group ref={group}>
+      <primitive object={scene} />
+    </group>
+  )
 }
 
 // The clip to loop for a model that does not name one: a plain idle, not an aggro or transition clip.
-function pickIdle(animations: THREE.AnimationClip[]): string | null {
-  const names = animations.map((a) => a.name)
-  const plain = (n: string) => /idle/i.test(n) && !/aggro|a2n|n2a|spawn|alert|death|attack/i.test(n)
-  return names.find((n) => /^idle(1)?(_base)?$/i.test(n)) ?? names.find(plain) ?? names.find((n) => /idle/i.test(n)) ?? names[0] ?? null
+// What a model does when it has no spawn clip, or no death clip: it grows in once the site has loaded, and
+// shrinks away when it is deleted. `die` starts the shrinking and says how long it takes (ms).
+function usePop(group: { current: THREE.Object3D | null }, growIn: boolean) {
+  const state = useRef<{ phase: 'in' | 'out' | 'none'; t: number }>({ phase: growIn ? 'in' : 'none', t: 0 })
+  useFrame((_, dt) => {
+    const g = group.current
+    const s = state.current
+    if (!g || s.phase === 'none') return
+    if (s.phase === 'in') {
+      if (!isRevealed()) {
+        g.scale.setScalar(0.001) // waiting for the loading screen to go
+        return
+      }
+      s.t = Math.min(1, s.t + dt / 1.1)
+      const k = s.t - 1
+      g.scale.setScalar(Math.max(0.001, 1 + 2.3 * k * k * k + 1.3 * k * k)) // ease out with a little overshoot
+      if (s.t >= 1) s.phase = 'none'
+    } else {
+      s.t = Math.min(1, s.t + dt / 0.9)
+      g.scale.setScalar(Math.max(0.001, 1 - s.t * s.t))
+    }
+  })
+  return useMemo(
+    () => ({
+      die: () => {
+        state.current = { phase: 'out', t: 0 }
+        return 950
+      },
+    }),
+    [],
+  )
 }
 
-// A monster with its own animation mixer. It stands still and loops its idle clip.
-function MonsterModel({ url, height, clip }: { url: string; height: number; clip?: string }) {
+function MonsterModel({
+  url,
+  height,
+  clip,
+  entityId,
+  at,
+  moving = false,
+}: {
+  url: string
+  height: number
+  clip?: string // the idle it prefers
+  entityId?: string // the entity this is, for the editor's clip list and the death on delete
+  at?: [number, number] // where it stands (x, z), to find the entities it moves together with
+  moving?: boolean // it is walking a route: it runs instead of standing
+}) {
   const gltf = useGLTF(url)
   const root = useRef<THREE.Group>(null)
   const scene = useMemo(() => fittedInstance(url, gltf.scene, height), [url, gltf, height])
-  const { actions } = useAnimations(gltf.animations, root)
+  const { actions, mixer } = useAnimations(gltf.animations, root)
+  const plan = useMemo(() => planClips(gltf.animations.map((a) => a.name), clip), [gltf.animations, clip])
+  const epic = useMemo(() => isEpicModel(url), [url])
+  const pop = usePop(root, !plan.spawn)
+  const stateful = useMemo(() => hasStates(scene), [scene])
+  const movingRef = useRef(moving)
+  movingRef.current = moving
+  const atRef = useRef(at)
+  atRef.current = at
+  const refreshBase = useRef<() => void>(() => {})
 
+  // What a model does: it spawns once when the site has loaded, then stands (or runs, on a route). Now and
+  // then the group it stands with (a camp, the turrets round a nexus) plays a move together, each member its
+  // own clip of the same kind. The four big ones also spawn in again every so often.
   useEffect(() => {
-    const name = clip && actions[clip] ? clip : pickIdle(gltf.animations)
-    const action = name ? actions[name] : null
-    action?.reset().fadeIn(0.25).play()
-    return () => {
-      action?.fadeOut(0.25)
+    const baseAction = () => {
+      const name = movingRef.current && plan.run ? plan.run : plan.idle
+      return name ? actions[name] ?? null : null
     }
-  }, [actions, clip, gltf.animations])
+    let current: THREE.AnimationAction | null = null
+    let busy = false // a clip that plays once is playing
+    const timers = new Set<number>()
+    const later = (ms: number, fn: () => void) => {
+      const id = window.setTimeout(() => {
+        timers.delete(id)
+        fn()
+      }, ms)
+      timers.add(id)
+    }
+    const start = (action: THREE.AnimationAction, once: boolean) => {
+      action.reset()
+      action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity)
+      action.clampWhenFinished = once
+      // The quick clips are slowed down so they can be seen, and the very long ones sped up
+      action.timeScale = once ? timeScaleFor(action.getClip().duration) : 1
+      action.fadeIn(0.2).play()
+      if (current && current !== action) current.fadeOut(0.25)
+      current = action
+    }
+    // The meshes that show: the standing ones, or the ones a clip moves (a tower's Respawn moves its broken
+    // pieces, a nexus's Death its destroyed mesh)
+    const showFor = (action: THREE.AnimationAction | null) => {
+      if (!stateful) return
+      const clipOf = action?.getClip()
+      showParts(scene, clipOf ? movedParts(gltf.scene, clipOf, `${url}|${clipOf.name}`) : null)
+    }
+    const toBase = () => {
+      busy = false
+      showFor(null)
+      const action = baseAction()
+      if (action) start(action, false)
+    }
+    const playOnce = (name: string | null) => {
+      const action = name ? actions[name] : null
+      if (!action) return false
+      busy = true
+      start(action, true)
+      showFor(action)
+      return true
+    }
+    const onFinished = (e: { action: THREE.AnimationAction }) => {
+      if (e.action === current && busy && !control.dead) toBase()
+    }
+    const control: ClipControl = {
+      names: gltf.animations.map((a) => a.name),
+      play: (name) => {
+        if (!control.dead) playOnce(name)
+      },
+      stop: () => {
+        if (!control.dead) toBase()
+      },
+      death: () => {
+        if (control.dead) return null
+        control.dead = true
+        busy = true
+        const action = plan.death ? actions[plan.death] : null
+        // No death clip: it shrinks away
+        if (!action) return pop.die()
+        const clipOf = action.getClip()
+        const spawnClip = plan.spawn ? actions[plan.spawn]?.getClip() : null
+        // A tower's "Destroyed" is its "Respawn" under another name, which builds it up: for a death the
+        // same clip is played backwards, so it falls apart
+        const backwards = !!spawnClip && sameClip(clipOf, spawnClip)
+        start(action, true)
+        action.timeScale = timeScaleFor(clipOf.duration, 6)
+        if (backwards) {
+          action.timeScale = -action.timeScale
+          action.time = clipOf.duration
+        }
+        showFor(action)
+        return Math.min(6000, (clipOf.duration / Math.abs(action.timeScale)) * 1000) + 150
+      },
+      dead: false,
+    }
+    refreshBase.current = () => {
+      if (!busy && !control.dead) toBase()
+    }
+
+    mixer.addEventListener('finished', onFinished as never)
+
+    // The spawn waits for the site to have loaded (the models are ready while the loading screen is still
+    // up), standing on its first frame meanwhile
+    const spawned = playOnce(plan.spawn)
+    if (!spawned) toBase()
+    let stopWaiting = () => {}
+    const spawning = plan.spawn ? actions[plan.spawn] : null
+    if (spawned && spawning && !isRevealed()) {
+      spawning.paused = true
+      stopWaiting = onRevealed(() => {
+        spawning.paused = false
+      })
+    }
+    if (entityId) registerClips(entityId, control)
+
+    // The group moves
+    const member: GroupMember = {
+      x: atRef.current?.[0] ?? 0,
+      z: atRef.current?.[1] ?? 0,
+      kinds: () => kindsOf(plan.show),
+      ready: () => !control.dead && !busy && !movingRef.current && plan.show.length > 0,
+      cue: (kind, seed, delay) => {
+        const choices = showOfKind(plan.show, kind)
+        if (choices.length === 0) return
+        later(delay, () => {
+          if (!control.dead && !busy && !movingRef.current) playOnce(choices[seed % choices.length])
+        })
+      },
+    }
+    if (entityId) joinGroup(entityId, member)
+
+    const respawn = () =>
+      later(50000 + Math.random() * 40000, () => {
+        if (!control.dead && !busy && !movingRef.current) playOnce(plan.spawn)
+        respawn()
+      })
+    if (epic && plan.spawn) respawn()
+
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id))
+      stopWaiting()
+      mixer.removeEventListener('finished', onFinished as never)
+      if (entityId) {
+        unregisterClips(entityId, control)
+        leaveGroup(entityId, member)
+      }
+      current?.fadeOut(0.25)
+    }
+  }, [actions, mixer, plan, epic, entityId, gltf.animations, scene, stateful, pop, url, gltf.scene])
+
+  // A route starts or ends: stand or run
+  useEffect(() => {
+    refreshBase.current()
+  }, [moving])
 
   return (
     <group ref={root}>
@@ -517,6 +732,7 @@ function MonsterModel({ url, height, clip }: { url: string; height: number; clip
 }
 
 interface EditContextValue {
+  interactive: boolean // false in the arXiv view: the entities do not answer clicks, and show no name
   version: number // bumped on reset, so every floating box starts again from its default state
   editing: boolean
   boxes: boolean // the floating boxes over the models are shown
@@ -533,8 +749,14 @@ interface EditContextValue {
   locked: ReadonlySet<string> // entities that cannot be moved, turned, raised, reset or deleted
   toggleLock: (item: Item) => void
   duplicate: (item: Item) => void
+  paths: Record<string, PathPoints> // the routes drawn for the scuttle crab
+  drawingPath: string | null // the entity whose route is being drawn
+  startPath: (item: Item) => void
+  endPath: () => void
+  undoPath: (item: Item) => void
+  clearPath: (item: Item) => void
 }
-const EditContext = createContext<EditContextValue>({ version: 0, editing: false, boxes: false, selected: null, beginDrag: () => {}, adjust: () => {}, reset: () => {}, select: () => {}, typeScales: {}, names: {}, rename: () => {}, finishRename: () => {}, remove: () => {}, locked: new Set(), toggleLock: () => {}, duplicate: () => {} })
+const EditContext = createContext<EditContextValue>({ interactive: true, version: 0, editing: false, boxes: false, selected: null, beginDrag: () => {}, adjust: () => {}, reset: () => {}, select: () => {}, typeScales: {}, names: {}, rename: () => {}, finishRename: () => {}, remove: () => {}, locked: new Set(), toggleLock: () => {}, duplicate: () => {}, paths: {}, drawingPath: null, startPath: () => {}, endPath: () => {}, undoPath: () => {}, clearPath: () => {} })
 
 const floatButton: CSSProperties = {
   flex: 1,
@@ -563,6 +785,9 @@ try {
   // Storage can be blocked. The boxes then keep whatever state they had.
 }
 const openToolbars = new Set(loadOpenToolbars())
+// Who wants to know when a box is opened or folded (the routes show only for the entities whose box is open)
+const toolbarListeners = new Set<() => void>()
+const notifyToolbars = () => toolbarListeners.forEach((fn) => fn())
 
 // The editor that floats above one entity's head. It is drawn in the 3D scene with a distance
 // factor, so it shrinks as the camera zooms out. Html does not carry this file's React contexts
@@ -580,6 +805,12 @@ function EntityToolbar({
   locked,
   onToggleLock,
   onCopy,
+  pathPoints,
+  drawingPath,
+  onPathDraw,
+  onPathFinish,
+  onPathUndo,
+  onPathClear,
 }: {
   item: Item
   selected: boolean
@@ -593,8 +824,23 @@ function EntityToolbar({
   locked: boolean
   onToggleLock: () => void
   onCopy: () => void
+  pathPoints: number // points of its route so far
+  drawingPath: boolean // its route is being drawn: clicks on the ground add points
+  onPathDraw: () => void
+  onPathFinish: () => void
+  onPathUndo: () => void
+  onPathClear: () => void
 }) {
   const [collapsed, setCollapsed] = useState(() => !openToolbars.has(item.id))
+  // The clips of this entity's model, once it has loaded
+  const [clipNames, setClipNames] = useState<string[]>(() => clipControls.get(item.id)?.names ?? [])
+  useEffect(() => {
+    const update = () => setClipNames(clipControls.get(item.id)?.names ?? [])
+    update()
+    return onClipsChange((id) => {
+      if (id === item.id) update()
+    })
+  }, [item.id])
   // The name field keeps its own copy of the text. This toolbar is drawn through Html, a separate
   // React root, so a value that only came back from the page's state arrived after the browser had
   // already moved the caret to the end. A local copy updates inside the keystroke, so it stays put.
@@ -609,6 +855,7 @@ function EntityToolbar({
       if (prev) openToolbars.add(item.id)
       else openToolbars.delete(item.id)
       saveOpenToolbars([...openToolbars])
+      queueMicrotask(notifyToolbars) // not while this box is being redrawn
       return !prev
     })
   }
@@ -721,6 +968,61 @@ function EntityToolbar({
         <HoldButton style={floatButton} label="1⟳" onStep={step({ yawDeg: 1 })} />
         <HoldButton style={floatButton} label="15⟳" onStep={step({ yawDeg: 15 })} />
       </div>
+      {clipNames.length > 0 && (
+        <>
+          <div style={label}>CLIPS · {clipNames.length} · click one to play it</div>
+          {/* A plain list of buttons, not a drop-down: a native drop-down does not stay open inside a box
+              that is placed in the 3D scene */}
+          <div
+            style={{
+              maxHeight: 92,
+              overflowY: 'auto',
+              marginBottom: 3,
+              border: '1px solid rgba(10, 200, 255, 0.5)',
+              background: 'rgba(1, 10, 19, 0.7)',
+            }}
+          >
+            {clipNames.map((n) => (
+              <button
+                key={n}
+                type="button"
+                title={n}
+                onClick={() => clipControls.get(item.id)?.play(n)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: '1px solid rgba(10, 200, 255, 0.15)',
+                  color: '#f0e6d2',
+                  font: 'inherit',
+                  fontSize: 10,
+                  padding: '2px 4px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                ▶ {n}
+              </button>
+            ))}
+          </div>
+          <div style={row}>
+            <button type="button" style={floatButton} onClick={() => clipControls.get(item.id)?.stop()}>
+              ■ back to standing
+            </button>
+          </div>
+        </>
+      )}
+      <div style={label}>PITCH · down / up</div>
+      <div style={{ ...row, ...frozen }}>
+        <HoldButton style={floatButton} label="▼15" onStep={step({ pitchDeg: 15 })} />
+        <HoldButton style={floatButton} label="▼1" onStep={step({ pitchDeg: 1 })} />
+        <HoldButton style={floatButton} label="▲1" onStep={step({ pitchDeg: -1 })} />
+        <HoldButton style={floatButton} label="▲15" onStep={step({ pitchDeg: -15 })} />
+      </div>
       <div style={label}>SIZE · {typeLabel(item).toUpperCase()}</div>
       <div style={row}>
         <HoldButton style={floatButton} label="− smaller" onStep={step({ scaleBy: 1 / 1.05 })} />
@@ -747,6 +1049,33 @@ function EntityToolbar({
           delete
         </button>
       </div>
+      {(
+        <>
+          <div style={label}>
+            ROUTE · {pathPoints} point{pathPoints === 1 ? '' : 's'}
+            {drawingPath ? ' · drag on the ground to draw' : ''}
+          </div>
+          <div style={row}>
+            {drawingPath ? (
+              <>
+                <button type="button" style={floatButton} onClick={onPathFinish}>
+                  Finish
+                </button>
+                <button type="button" style={floatButton} onClick={onPathUndo}>
+                  Undo stroke
+                </button>
+              </>
+            ) : (
+              <button type="button" style={floatButton} onClick={onPathDraw}>
+                Draw route
+              </button>
+            )}
+            <button type="button" style={floatButton} onClick={onPathClear}>
+              Clear
+            </button>
+          </div>
+        </>
+      )}
       <button
         type="button"
         style={{ ...floatButton, width: '100%' }}
@@ -807,6 +1136,77 @@ function DropMarker() {
 function Placed({ item, pose }: { item: Item; pose: Pose }) {
   const select = useContext(LockContext)
   const edit = useContext(EditContext)
+  // An entity with a route walks it back and forth, at its own height, facing the way it goes
+  const route = edit.paths[item.id]
+  const walking = !!route && route.length >= 2 && edit.drawingPath !== item.id
+  const group = useRef<THREE.Group>(null)
+  // Crabs do not all start at the same place on the route: half of the time one stands in the middle (going
+  // either way), otherwise it starts at one end or the other (a quarter each). It is rolled once, when the
+  // crab appears, so every load is different.
+  const isCrab = /crab/i.test(`${item.monster?.name ?? ''} ${item.url ?? ''} ${item.name}`)
+  const walk = useRef({ along: 0, dir: 1, placed: false })
+  // The tilt as one object that only changes with the pose. A new object on every render would be put
+  // back on the group each time the page redraws (and it redraws whenever the camera moves), which
+  // would undo the heading the walking crab has turned to.
+  const tilt = useMemo(() => new THREE.Euler(pose.pitch ?? 0, pose.yaw, 0, 'YXZ'), [pose.pitch, pose.yaw])
+  useFrame((_, dt) => {
+    const g = group.current
+    if (!walking || !g || !route || clipControls.get(item.id)?.dead) return
+    const lens: number[] = []
+    let total = 0
+    for (let i = 1; i < route.length; i++) {
+      const l = Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1])
+      lens.push(l)
+      total += l
+    }
+    if (total < 0.01) return
+    const w = walk.current
+    const fresh = !w.placed
+    if (fresh) {
+      w.placed = true
+      if (isCrab) {
+        const roll = Math.random()
+        if (roll < 0.5) {
+          w.along = total / 2
+          w.dir = Math.random() < 0.5 ? 1 : -1
+        } else if (roll < 0.75) {
+          w.along = 0
+          w.dir = 1
+        } else {
+          w.along = total
+          w.dir = -1
+        }
+      }
+    }
+    w.along += w.dir * ROUTE_SPEED * Math.min(dt, 0.1)
+    if (w.along >= total) {
+      w.along = total
+      w.dir = -1
+    } else if (w.along <= 0) {
+      w.along = 0
+      w.dir = 1
+    }
+    let left = w.along
+    let i = 0
+    while (i < lens.length - 1 && left > lens[i]) {
+      left -= lens[i]
+      i++
+    }
+    const t = lens[i] > 0 ? Math.min(1, left / lens[i]) : 0
+    const [x0, z0] = route[i]
+    const [x1, z1] = route[i + 1]
+    g.position.set(x0 + (x1 - x0) * t, GROUND_Y + (pose.y ?? 0), z0 + (z1 - z0) * t)
+    // Towers and turrets are modelled facing sideways, so their heading carries the same turn as their pose
+    const heading = Math.atan2(x1 - x0, z1 - z0) + (w.dir < 0 ? Math.PI : 0) + (item.kind === 'tower' || item.kind === 'turret' ? TURRET_YAW : 0)
+    g.rotation.order = 'YXZ'
+    if (fresh) {
+      g.rotation.y = heading // it appears already facing the way it goes
+    } else {
+      let turn = heading - g.rotation.y
+      turn = Math.atan2(Math.sin(turn), Math.cos(turn))
+      g.rotation.y += turn * (1 - Math.exp(-8 * Math.min(dt, 0.1)))
+    }
+  })
   const selected = edit.editing && edit.selected === item.id
   // The item's own size times its type's size, so one resize changes every entity of the type
   const size = edit.typeScales[typeKey(item)] ?? 1
@@ -814,26 +1214,29 @@ function Placed({ item, pose }: { item: Item; pose: Pose }) {
 
   const body =
     item.kind === 'monster' && item.monster ? (
-      <MonsterModel url={`${M}${item.monster.file}`} height={item.height} clip={item.monster.idle} />
+      <MonsterModel url={`${M}${item.monster.file}`} height={item.height} clip={item.monster.idle} entityId={item.id} at={[pose.x, pose.z]} moving={walking} />
     ) : item.kind === 'model' && item.url ? (
-      <MonsterModel url={item.url} height={item.height} />
+      <MonsterModel url={item.url} height={item.height} entityId={item.id} at={[pose.x, pose.z]} moving={walking} />
     ) : (
       <FittedModel
         url={item.kind === 'nexus' ? NEXUS_MODEL : TURRET}
         height={item.height}
         // Towers and turrets keep the model's own colours. Only the nexus is team-tinted.
         tint={item.kind === 'nexus' ? color : undefined}
+        entityId={item.id}
       />
     )
 
   return (
     <group
+      ref={group}
+      name={item.id}
       position={[pose.x, GROUND_Y + (pose.y ?? 0), pose.z]}
-      rotation={[0, pose.yaw, 0]}
+      rotation={tilt}
       scale={size}
       onPointerDown={edit.editing ? (e) => edit.beginDrag(item, e) : undefined}
       onClick={
-        edit.editing
+        edit.editing || !edit.interactive
           ? undefined
           : (e) => {
               e.stopPropagation()
@@ -851,8 +1254,11 @@ function Placed({ item, pose }: { item: Item; pose: Pose }) {
       }
     >
       <Suspense fallback={null}>{body}</Suspense>
+      {/* The box stands on a point above the head, so it grows upward however tall it gets (folded, with the
+          clip list, with the route row), instead of spreading both ways over the model */}
       {edit.editing && edit.boxes && (
-        <Html position={[0, item.height + 1.2, 0]} center distanceFactor={30} zIndexRange={[2500, 0]}>
+        <Html position={[0, item.height + 1.6, 0]} distanceFactor={30} zIndexRange={[2500, 0]}>
+          <div style={{ transform: 'translate(-50%, -100%)' }}>
           <EntityToolbar
             key={edit.version}
             item={item}
@@ -867,7 +1273,14 @@ function Placed({ item, pose }: { item: Item; pose: Pose }) {
             onAdjust={(change) => edit.adjust(item, change)}
             onReset={() => edit.reset(item)}
             onSelect={() => edit.select(item.id)}
+            pathPoints={route?.length ?? 0}
+            drawingPath={edit.drawingPath === item.id}
+            onPathDraw={() => edit.startPath(item)}
+            onPathFinish={edit.endPath}
+            onPathUndo={() => edit.undoPath(item)}
+            onPathClear={() => edit.clearPath(item)}
           />
+          </div>
         </Html>
       )}
       {selected && (
@@ -883,8 +1296,34 @@ function Placed({ item, pose }: { item: Item; pose: Pose }) {
 // One editor step: turn, resize or lift the selected item.
 interface Adjust {
   yawDeg?: number
+  pitchDeg?: number // positive tips the nose down
   scaleBy?: number
   yBy?: number
+}
+// Every entity can be given a route to walk (the scuttle crab is the one it was made for)
+const ROUTE_SPEED = 3 // world units per second along its route
+const ROUTE_STEP = 0.8 // drawing a route: a point is added each time the pointer has moved this far
+const ROUTE_TOLERANCE = 0.25 // and a finished stroke is thinned out until no point is further than this off its line
+
+// Thins out the points of a stroke (Ramer-Douglas-Peucker): the ends stay, and so does every point that
+// is more than `tolerance` away from the straight line between the points kept either side of it.
+function simplify(points: PathPoints, tolerance: number): PathPoints {
+  if (points.length < 3) return points
+  const [ax, az] = points[0]
+  const [bx, bz] = points[points.length - 1]
+  const len = Math.hypot(bx - ax, bz - az)
+  let far = 0
+  let at = -1
+  for (let i = 1; i < points.length - 1; i++) {
+    const [x, z] = points[i]
+    const d = len === 0 ? Math.hypot(x - ax, z - az) : Math.abs((bx - ax) * (az - z) - (ax - x) * (bz - az)) / len
+    if (d > far) {
+      far = d
+      at = i
+    }
+  }
+  if (far <= tolerance) return [points[0], points[points.length - 1]]
+  return [...simplify(points.slice(0, at + 1), tolerance).slice(0, -1), ...simplify(points.slice(at), tolerance)]
 }
 const clampScale = (s: number) => Math.min(8, Math.max(0.1, s))
 
@@ -933,15 +1372,38 @@ function HoldButton({ label, onStep, style }: { label: string; onStep: () => voi
 
 // Everything on the rift that comes from a real model. Clicking a tower, nexus or monster
 // locks a bracket label onto it for a few seconds. On localhost it is also a layout editor.
+// The route of a crab, drawn on the map while editing: a line through the points, a dot at each (the
+// first one green, where it starts)
+function RouteLine({ points, y, active }: { points: PathPoints; y: number; active: boolean }) {
+  const vectors = useMemo(() => points.map(([x, z]) => new THREE.Vector3(x, y, z)), [points, y])
+  const color = active ? '#ffd23f' : '#0ac8ff'
+  return (
+    <group>
+      {vectors.length >= 2 && <Line points={vectors} color={color} lineWidth={2} depthTest={false} renderOrder={10} />}
+      {vectors.map((v, i) => (
+        <mesh key={i} position={v} renderOrder={11}>
+          <sphereGeometry args={[0.35, 12, 12]} />
+          <meshBasicMaterial color={i === 0 ? '#4cd964' : color} depthTest={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 // hideTags turns the floating tags over the models (and the editing that goes with them) off for
 // as long as it is set, without touching the saved setting, so it comes back as it was.
 export default function RiftModels({ hideTags = false }: { hideTags?: boolean }) {
   const [lock, setLock] = useState<LockInfo | null>(null)
+  // A name label that was locked onto an entity goes when the arXiv view comes
+  useEffect(() => {
+    if (hideTags) setLock(null)
+  }, [hideTags])
   const [overrides, setOverrides] = useState<Record<string, Pose>>(loadCleanOverrides)
   const [selected, setSelected] = useState<string | null>(null)
   const [panelOpen, setPanelOpen] = useState(START_EDITING)
   const [boxes, setBoxes] = useState(() => {
     try {
+      // The floating tags start on, for visitors too, until they are turned off from the editor
       return window.localStorage.getItem(BOXES_KEY) !== '0'
     } catch {
       return true
@@ -955,7 +1417,21 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
   const [added, setAdded] = useState<AddedEntry[]>(() => loadAdded(DEFAULT_ADDED))
   const [deleted, setDeleted] = useState<string[]>(() => loadDeleted(DEFAULT_DELETED))
   const [locked, setLocked] = useState<string[]>(() => loadLocked(DEFAULT_LOCKED))
+  // Routes for the entities, and the one being drawn (clicks on the ground add points to it)
+  const [paths, setPaths] = useState<Record<string, PathPoints>>(() => loadPaths(DEFAULT_PATHS))
+  const [drawingPath, setDrawingPath] = useState<string | null>(null)
+  // A box opened or folded: the routes drawn on the map follow it
+  const [, setBoxesOpenTick] = useState(0)
+  useEffect(() => {
+    const changed = () => setBoxesOpenTick((t) => t + 1)
+    toolbarListeners.add(changed)
+    return () => {
+      toolbarListeners.delete(changed)
+    }
+  }, [])
   const [toolbarVersion, setToolbarVersion] = useState(0)
+  // A model being downloaded because it was dropped on the map: its name and how far it has got
+  const [download, setDownload] = useState<{ name: string; progress: number } | null>(null)
   const lockedSet = useMemo(() => new Set(locked), [locked])
   const [localTiles, setLocalTiles] = useState<InventoryTile[]>([])
   const { camera, gl, raycaster, controls } = useThree()
@@ -971,6 +1447,7 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
   useEffect(() => saveNames(names), [names])
   useEffect(() => saveAdded(added), [added])
   useEffect(() => saveDeleted(deleted), [deleted])
+  useEffect(() => savePaths(paths), [paths])
   useEffect(() => saveLocked(locked), [locked])
 
   // The inventory also lists every model in the local models folder (dev server only)
@@ -983,7 +1460,7 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
       setLocalTiles(
         list.map((m) => {
             const d = describeLocalModel(m.path, m.side)
-            return { key: d.key, label: d.label, group: d.group, url: d.url, team: d.team }
+            return { key: d.key, label: d.label, group: d.group, url: d.url, team: d.team, thumb: m.thumb, size: m.size }
           }),
       )
     })
@@ -1021,7 +1498,8 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
   const drag = useRef<{ id: string; dx: number; dz: number; base: Pose } | null>(null)
   const setPose = useCallback((id: string, pose: Pose) => setOverrides((prev) => ({ ...prev, [id]: pose })), [])
 
-  // Puts an inventory entry on the map, at the ground point under a screen position
+  // Puts an inventory entry on the map, at the ground point under a screen position. A model that is not
+  // on the site is downloaded first (the editor shows how far it has got), then it appears.
   const addAt = useCallback(
     (key: string, clientX: number, clientY: number) => {
       const inv = INVENTORY.find((i) => i.key === key)
@@ -1030,18 +1508,44 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
       const at = new THREE.Vector3(p.x, GROUND_Y, p.z)
       const facing = facingToward(at, MAP_CENTER) + (inv && (inv.kind === 'tower' || inv.kind === 'turret') ? TURRET_YAW : 0)
       const id = `added-${Date.now().toString(36)}-${key}`
-      setAdded((prev) => [...prev, { id, key, x: p.x, z: p.z, yaw: facing }])
-      setSelected(id)
+      const put = () => {
+        setAdded((prev) => [...prev, { id, key, x: p.x, z: p.z, yaw: facing }])
+        setSelected(id)
+      }
+      const path = key.startsWith('file:') ? key.slice(5) : null
+      if (!path || isBundled(path)) {
+        put()
+        return
+      }
+      const name = path.replace(/\.glb$/i, '')
+      setDownload({ name, progress: 0 })
+      void downloadModel(path, (progress) => setDownload({ name, progress })).then((ok) => {
+        if (ok) {
+          setDownload(null)
+          put()
+        } else {
+          setDownload({ name, progress: -1 })
+          window.setTimeout(() => setDownload(null), 4000)
+        }
+      })
     },
     [groundPoint],
   )
 
   // Deleting a built-in entity hides it (it can be restored). An added one is removed for good.
+  // Deleting plays the entity's death clip first (if its model has one), then it goes
   const removeItem = useCallback((item: Item) => {
     if (lockedSet.has(item.id)) return
-    if (item.id.startsWith('added-')) setAdded((prev) => prev.filter((a) => a.id !== item.id))
-    else setDeleted((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
-    setSelected((cur) => (cur === item.id ? null : cur))
+    const control = clipControls.get(item.id)
+    if (control?.dead) return // already dying
+    const go = () => {
+      if (item.id.startsWith('added-')) setAdded((prev) => prev.filter((a) => a.id !== item.id))
+      else setDeleted((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
+      setSelected((cur) => (cur === item.id ? null : cur))
+    }
+    const lasts = control?.death() ?? null
+    if (lasts === null) go()
+    else window.setTimeout(go, lasts)
   }, [lockedSet])
 
   const beginDrag = useCallback(
@@ -1098,6 +1602,7 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
         ...cur,
         yaw: cur.yaw + ((change.yawDeg ?? 0) * Math.PI) / 180,
         y: (cur.y ?? 0) + (change.yBy ?? 0),
+        pitch: Math.max(-Math.PI / 2, Math.min(Math.PI / 2, (cur.pitch ?? 0) + ((change.pitchDeg ?? 0) * Math.PI) / 180)),
       })
     },
     [overrides, setPose, lockedSet],
@@ -1108,6 +1613,102 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
     },
     [selectedItem, adjustItem],
   )
+
+  // Drawing a route: each click on the ground adds a point, at the height of the entity. Enter or Esc
+  // finishes, Backspace takes the last point back.
+  const pathPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), [])
+  const pathHit = useMemo(() => new THREE.Vector3(), [])
+  const pathsNow = useRef(paths) // the routes as they are now, for the pointer handlers below
+  pathsNow.current = paths
+  const strokeStarts = useRef<number[]>([]) // where each stroke of the route being drawn begins
+  const startPath = useCallback((item: Item) => {
+    setSelected(item.id)
+    setPaths((prev) => ({ ...prev, [item.id]: [] })) // a new route replaces the old one
+    strokeStarts.current = []
+    setDrawingPath(item.id)
+  }, [])
+  // Undo takes back the last stroke
+  const undoPath = useCallback((item: Item) => {
+    const start = strokeStarts.current.pop()
+    setPaths((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? []).slice(0, start ?? -1) }))
+  }, [])
+  const clearPath = useCallback((item: Item) => {
+    setDrawingPath((cur) => (cur === item.id ? null : cur))
+    setPaths((prev) => {
+      const next = { ...prev }
+      delete next[item.id]
+      return next
+    })
+  }, [])
+  useEffect(() => {
+    if (!editing) setDrawingPath(null)
+  }, [editing])
+  useEffect(() => {
+    if (!drawingPath) return
+    const id = drawingPath
+    const item = items.find((i) => i.id === id)
+    const height = GROUND_Y + ((overrides[id] ?? item?.pose)?.y ?? 0)
+    const groundAt = (e: PointerEvent): [number, number] | null => {
+      const r = gl.domElement.getBoundingClientRect()
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+      raycaster.setFromCamera(ndc, camera)
+      pathPlane.constant = -height
+      return raycaster.ray.intersectPlane(pathPlane, pathHit) ? [round(pathHit.x), round(pathHit.z)] : null
+    }
+    // Press and drag on the ground to draw the route freehand. A point is added each time the pointer
+    // has gone a little way from the last one, and the stroke is thinned out when it ends.
+    let stroking = false
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 || e.target !== gl.domElement) return
+      const first = groundAt(e)
+      if (!first) return
+      e.stopPropagation() // not a click on the map, and the camera does not move
+      e.preventDefault()
+      stroking = true
+      strokeStarts.current.push(pathsNow.current[id]?.length ?? 0)
+      setPaths((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), first] }))
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!stroking) return
+      const next = groundAt(e)
+      if (!next) return
+      setPaths((prev) => {
+        const list = prev[id] ?? []
+        const last = list[list.length - 1]
+        if (last && Math.hypot(next[0] - last[0], next[1] - last[1]) < ROUTE_STEP) return prev
+        return { ...prev, [id]: [...list, next] }
+      })
+    }
+    const onUp = () => {
+      if (!stroking) return
+      stroking = false
+      const start = strokeStarts.current[strokeStarts.current.length - 1] ?? 0
+      setPaths((prev) => {
+        const list = prev[id] ?? []
+        return { ...prev, [id]: [...list.slice(0, start), ...simplify(list.slice(start), ROUTE_TOLERANCE)] }
+      })
+    }
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
+      if (e.key === 'Enter' || e.key === 'Escape') setDrawingPath(null)
+      else if (e.key === 'Backspace') {
+        e.preventDefault()
+        const undo = strokeStarts.current.pop()
+        setPaths((prev) => ({ ...prev, [id]: (prev[id] ?? []).slice(0, undo ?? -1) }))
+      }
+    }
+    window.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [drawingPath, items, overrides, gl, camera, raycaster, ndc, pathPlane, pathHit])
 
   // [ and ] rotate the selected item. Typing in a field never rotates anything.
   useEffect(() => {
@@ -1197,8 +1798,13 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
       const pose = overrides[item.id] ?? item.pose
       const id = `added-${Date.now().toString(36)}-${key}`
       setAdded((prev) => [...prev, { id, key, x: pose.x + 3, z: pose.z + 3, yaw: pose.yaw }])
-      if (pose.y) setOverrides((prev) => ({ ...prev, [id]: { x: pose.x + 3, z: pose.z + 3, yaw: pose.yaw, y: pose.y } }))
-      if (names[item.id]) setNames((prev) => ({ ...prev, [id]: `${names[item.id]} copy` }))
+      if (pose.y || pose.pitch) setOverrides((prev) => ({ ...prev, [id]: { x: pose.x + 3, z: pose.z + 3, yaw: pose.yaw, y: pose.y, pitch: pose.pitch } }))
+      // A copy is numbered after the original: tier1_top_2, tier1_top_3 ...
+      const original = (names[item.id] || item.name).replace(/_\d+$/, '')
+      const taken = new Set([...Object.values(names), ...ITEMS.map((i) => i.name)])
+      let n = 2
+      while (taken.has(`${original}_${n}`)) n++
+      setNames((prev) => ({ ...prev, [id]: `${original}_${n}` }))
       setSelected(id)
     },
     [added, overrides, names],
@@ -1221,8 +1827,8 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
   }, [])
 
   const editValue = useMemo<EditContextValue>(
-    () => ({ version: toolbarVersion, editing, boxes: boxes && !hideTags, selected, beginDrag, adjust: adjustItem, reset: resetItem, select: setSelected, typeScales, names, rename: renameItem, finishRename, remove: removeItem, locked: lockedSet, toggleLock, duplicate: duplicateItem }),
-    [toolbarVersion, editing, boxes, hideTags, selected, beginDrag, adjustItem, resetItem, typeScales, names, renameItem, finishRename, removeItem, lockedSet, toggleLock, duplicateItem],
+    () => ({ interactive: !hideTags, version: toolbarVersion, editing, boxes: boxes && !hideTags, selected, beginDrag, adjust: adjustItem, reset: resetItem, select: setSelected, typeScales, names, rename: renameItem, finishRename, remove: removeItem, locked: lockedSet, toggleLock, duplicate: duplicateItem, paths, drawingPath, startPath, endPath: () => setDrawingPath(null), undoPath, clearPath }),
+    [toolbarVersion, editing, boxes, hideTags, selected, beginDrag, adjustItem, resetItem, typeScales, names, renameItem, finishRename, removeItem, lockedSet, toggleLock, duplicateItem, paths, drawingPath, startPath, undoPath, clearPath],
   )
 
   // The editor's pill and panel live in the page (LayoutEditorUI), outside this canvas. Publish
@@ -1232,8 +1838,11 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
     const live = new Set(items.map((i) => i.id))
     for (const [id, p] of Object.entries(overrides)) {
       if (!live.has(id)) continue
-      out[id] = { x: round(p.x), z: round(p.z), yawDeg: round(deg(p.yaw), 1), y: round(p.y ?? 0) }
+      out[id] = { x: round(p.x), z: round(p.z), yawDeg: round(deg(p.yaw), 1), y: round(p.y ?? 0), ...(p.pitch ? { pitchDeg: round(deg(p.pitch), 1) } : {}) }
     }
+    // Routes drawn for the entities
+    const routes = Object.fromEntries(Object.entries(paths).filter(([id, pts]) => live.has(id) && pts.length > 0))
+    if (Object.keys(routes).length > 0) out.__paths = routes
     // Sizes shared by every entity of a type
     const sizes = Object.fromEntries(Object.entries(typeScales).map(([k, v]) => [k, round(v, 3)]))
     if (Object.keys(sizes).length > 0) out.__typeScales = sizes
@@ -1248,7 +1857,7 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
     const lockedLive = locked.filter((id) => live.has(id))
     if (lockedLive.length > 0) out.__locked = lockedLive
     return JSON.stringify(out, null, 1)
-  }, [overrides, typeScales, names, items, added, deleted, locked])
+  }, [overrides, typeScales, names, items, added, deleted, locked, paths])
 
   useEffect(() => {
     const pose = selectedItem ? overrides[selectedItem.id] ?? selectedItem.pose : null
@@ -1258,14 +1867,15 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
       selected: selectedItem ? names[selectedItem.id] || selectedItem.name : null,
       readout:
         selectedItem && pose
-          ? `x ${round(pose.x, 1)} · z ${round(pose.z, 1)} · yaw ${round(deg(pose.yaw), 1)}°\nsize ×${round(typeScales[typeKey(selectedItem)] ?? 1, 2)} (${typeLabel(selectedItem)}) · height ${round(pose.y ?? 0, 2)}`
+          ? `x ${round(pose.x, 1)} · z ${round(pose.z, 1)} · yaw ${round(deg(pose.yaw), 1)}°\nsize ×${round(typeScales[typeKey(selectedItem)] ?? 1, 2)} (${typeLabel(selectedItem)}) · height ${round(pose.y ?? 0, 2)}${pose.pitch ? ` · pitch ${round(deg(pose.pitch), 1)}°` : ''}`
           : null,
       exported,
       count: Object.keys(overrides).length,
       deleted: deleted.length,
       inventory: inventoryTiles,
+      download,
     })
-  }, [panelOpen, boxes, selectedItem, overrides, typeScales, names, exported, deleted, inventoryTiles])
+  }, [panelOpen, boxes, selectedItem, overrides, typeScales, names, exported, deleted, inventoryTiles, download])
 
   useEffect(() => {
     editorStore.actions.toggle = togglePanel
@@ -1278,7 +1888,10 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
       setAdded(fresh(DEFAULT_ADDED))
       setDeleted(fresh(DEFAULT_DELETED))
       setLocked(fresh(DEFAULT_LOCKED))
+      setPaths(fresh(DEFAULT_PATHS))
+      setDrawingPath(null)
       openToolbars.clear()
+      notifyToolbars()
       saveOpenToolbars([])
       setToolbarVersion((v) => v + 1)
     }
@@ -1302,7 +1915,15 @@ export default function RiftModels({ hideTags = false }: { hideTags?: boolean })
           ))}
           {EDITOR_ENABLED && <DropMarker />}
 
-          {lock && (
+          {editing &&
+            Object.entries(paths).map(([id, points]) => {
+              const item = items.find((i) => i.id === id)
+              // A route shows only while the floating editor of its entity is open (or it is being drawn)
+              if (!item || points.length === 0 || !(drawingPath === id || openToolbars.has(id))) return null
+              return <RouteLine key={id} points={points} y={GROUND_Y + (poseOf(item).y ?? 0) + 0.15} active={drawingPath === id} />
+            })}
+
+          {lock && !hideTags && (
             <Html position={lock.anchor} center>
               <div className="rift-lock" style={{ '--lock-color': lock.color } as CSSProperties}>
                 <span className="rift-lock__title">{lock.title}</span>

@@ -21,12 +21,35 @@ import BlogHud from './BlogHud'
 import ArxivHud from './ArxivHud'
 import Css3dPanels from './Css3dPanels'
 import type { Css3dPanel } from './Css3dPanels'
-import { ARXIV_LAYOUT, idleTranslation, initialArxivView } from './arxivLayout'
-import type { ArxivCommands, ArxivMode, ArxivTranslation, ArxivViewState } from './arxivLayout'
+import { ARXIV_LAYOUT, ROAM, idlePaperInfo, initialArxivView, listHalf, moveOf, raise, restoreDefaults, sheetBase } from './arxivLayout'
+import type { ArxivMode, ArxivViewState, PaperEntry, PaperInfo } from './arxivLayout'
 import { resolveTarget } from '../pdf/pdfTarget'
 
 // The papers of the arXiv view are drawn in the 3D scene. pdf.js is heavy, so they load on demand.
 const ArxivPapers = lazy(() => import('./ArxivPapers'))
+
+// The papers of the arXiv view: how many can be open at once, and where the list is remembered
+// The colour of the sky: the scene's background and fog, and the tint the map has always been seen through
+const SKY_COLOR = '#c8dbe6'
+const MAX_ARXIV_PAPERS = 6
+// What /arxiv shows: the paper that opens the view when no other address is given
+const DEFAULT_ARXIV_PAPER = 'https://arxiv.org/pdf/1706.03762'
+const ARXIV_LIST_KEY = 'arxiv-paper-list'
+const loadArxivList = (): string[] => {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(ARXIV_LIST_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+const saveArxivList = (targets: string[]) => {
+  try {
+    localStorage.setItem(ARXIV_LIST_KEY, JSON.stringify(targets))
+  } catch {
+    /* the list is just not remembered */
+  }
+}
 import { useProjects } from '../projects/useProjects'
 
 const PLAYLIST = [
@@ -233,11 +256,14 @@ function MusicPlayer({
       {/* Each view keeps its own position, size and collapsed state for the player. The chrome is rebuilt
           when the view changes (the key), while the player and its audio keep playing. Both start in
           the bottom-left corner: the ids are new, so no position saved for the old corner applies. */}
+      {music3d && <div className="css3d-grip" data-rotate title="Drag sideways to turn" />}
       <PanelChrome
         key={view}
         id={`music-${view}`}
         label="Music"
-        resizable
+        // Not in the 3D scene: the panel's measured size there is its size on the screen, with
+        // perspective, so the text scaling that follows the box size would shrink the contents
+        resizable={!music3d}
         minWidth={130}
         minHeight={90}
       />
@@ -462,8 +488,8 @@ type MapView = 'home' | 'projects' | 'blog' | 'arxiv'
 // player to their left (turned a little toward them). Positions are in world units from the middle
 // of the papers; scale is world units per CSS pixel (0.02 makes the 560 px controls 11 units wide).
 const ARXIV_PANELS: Css3dPanel[] = [
-  { id: 'css3d-arxiv-bar', x: 0, y: -9.3, scale: 0.02 },
-  { id: 'css3d-music', x: -8.8, y: -9.9, scale: 0.02, yawOffset: 0.28 },
+  { id: 'css3d-arxiv-bar', x: 0, y: -9.3, scale: 0.02, move: 'bar' },
+  { id: 'css3d-music', x: -8.8, y: -9.9, scale: 0.02, yawOffset: 0.28, move: 'music' },
 ]
 // Where the camera goes to look at a panel when it is clicked: in front of it, close enough that it
 // fills a good part of the screen
@@ -473,7 +499,7 @@ const ARXIV_SPOTS = {
   music: { x: ARXIV_PANELS[1].x, y: ARXIV_PANELS[1].y, d: 11.5, yaw: ARXIV_PANELS[1].yawOffset ?? 0 },
 }
 
-function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, projectsMode, freeView, arxivCompare, startCinema, onNearHome }: {
+function CameraController({ onPositionChange, onRotationChange, controlsRef, goingHome, projectsMode, freeView, arxivCompare, onArxivPage, startCinema, onNearHome }: {
   onPositionChange: (pos: { x: number, y: number, z: number }) => void,
   onRotationChange: (rot: { yaw: number, pitch: number }) => void,
   controlsRef: React.MutableRefObject<any>,
@@ -481,11 +507,17 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   projectsMode: boolean, // any view other than home: the camera holds that view's pose
   freeView: 'blog' | 'arxiv' | null, // a low view (otherwise the Projects view, when projectsMode is set)
   arxivCompare: React.MutableRefObject<ArxivViewState>, // the arXiv comparison and focus, eased here
+  onArxivPage: (id: string, by: number) => void, // the wheel turns the page of the paper in focus
   startCinema: boolean,
   onNearHome: (near: boolean) => void
 }) {
   const { camera, gl } = useThree()
   const keysPressed = useRef<Set<string>>(new Set())
+  const ctrlSince = useRef(0) // when Ctrl went down
+  const ctrlStartY = useRef(0) // where the camera was when it did
+  const ctrlKickedFor = useRef(-1) // the Ctrl press that has been given its nudge down
+  const chordAt = useRef(0) // when Ctrl+Z or Ctrl+Y (undo, redo) was last pressed
+  const chordDoneFor = useRef(-1) // the Ctrl press whose nudge an undo has taken back
   const moveSpeed = 0.5
   const shake = useMemo(() => createCameraShake(), [])
   
@@ -525,11 +557,14 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   )
   // The Projects view can be dragged (tilt) and zoomed with the mouse, then eases back to the
   // overhead pose once the mouse is released
-  const projState = useRef({ tiltX: 0, tiltZ: 0, zoom: 1, lastInput: 0, dragging: false })
+  const pageStep = useRef(onArxivPage)
+  pageStep.current = onArxivPage
+  const projState = useRef({ tiltX: 0, tiltZ: 0, zoom: 1, lastInput: 0, dragging: false, pan: new THREE.Vector3(), vel: new THREE.Vector3() })
   const projEuler = useRef(new THREE.Euler())
   const projRot = useRef(new THREE.Quaternion())
   const projDesiredQuat = useRef(new THREE.Quaternion())
   const projDesiredPos = useRef(new THREE.Vector3())
+  const orbitPivot = useRef(new THREE.Vector3())
   useEffect(() => {
     if (!projectsMode) return
     const el = gl.domElement
@@ -543,6 +578,11 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       let lastX = e.clientX
       let lastY = e.clientY
       const move = (ev: PointerEvent) => {
+        if (arxivCompare.current.dragging) {
+          lastX = ev.clientX
+          lastY = ev.clientY
+          return
+        }
         st.tiltZ = THREE.MathUtils.clamp(st.tiltZ + (ev.clientX - lastX) * 0.004, -1, 1)
         st.tiltX = THREE.MathUtils.clamp(st.tiltX - (ev.clientY - lastY) * 0.004, -1, 1)
         lastX = ev.clientX
@@ -561,8 +601,22 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       window.addEventListener('pointercancel', up)
       stopDrag.push(up)
     }
+    let wheelSum = 0
+    let wheelAt = 0
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      // In a focus on a paper the wheel turns its pages: down for the next, up for the one before
+      const cmpW = arxivCompare.current
+      if (cmpW.focusTarget !== 0 && cmpW.focusId && (cmpW.lifts[cmpW.focusId] ?? 0) > 0.5) {
+        wheelSum += e.deltaY
+        const t = performance.now()
+        if (Math.abs(wheelSum) >= 40 && t - wheelAt > 160) {
+          pageStep.current(cmpW.focusId, wheelSum > 0 ? 1 : -1)
+          wheelSum = 0
+          wheelAt = t
+        }
+        return
+      }
       st.zoom = THREE.MathUtils.clamp(st.zoom * Math.exp(e.deltaY * 0.001), 0.35, 1.8)
       st.lastInput = performance.now()
     }
@@ -575,6 +629,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       st.tiltX = 0
       st.tiltZ = 0
       st.zoom = 1
+      st.pan.set(0, 0, 0)
       st.dragging = false
     }
   }, [projectsMode, gl])
@@ -612,13 +667,19 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const field = e.target as HTMLElement | null
+      if (field && (/^(input|textarea|select)$/i.test(field.tagName) || field.isContentEditable)) return
       const key = e.key.toLowerCase()
       
       // Toggle auto-movement with 'C' key
-      if (key === 'c') {
+      if (key === 'c' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
         setAutoMove(prev => !prev)
       } else {
+        // Space lifts the camera, so the page must not scroll or press a focused button for it
+        if (key === ' ' && field?.tagName !== 'BUTTON') e.preventDefault()
+        if (key === 'control' && !keysPressed.current.has('control')) ctrlSince.current = performance.now()
+        if ((key === 'z' || key === 'y') && (e.ctrlKey || e.metaKey)) chordAt.current = performance.now()
         keysPressed.current.add(key)
       }
     }
@@ -627,12 +688,16 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       keysPressed.current.delete(e.key.toLowerCase())
     }
 
+    // A key let go while the window was not looking would stay pressed (Ctrl often is)
+    const releaseAll = () => keysPressed.current.clear()
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', releaseAll)
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', releaseAll)
     }
   }, [])
 
@@ -701,7 +766,16 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       if (controlsRef.current) controlsRef.current.enabled = false
       const dt = Math.min(delta, 0.1)
       const st = projState.current
-      if (!st.dragging && now - st.lastInput > 700) {
+      // The arXiv view keeps the tilt and zoom the user gave it, until they are reset
+      if (arxivCompare.current.resetCamera) {
+        arxivCompare.current.resetCamera = false
+        st.tiltX = 0
+        st.tiltZ = 0
+        st.zoom = 1
+        st.pan.set(0, 0, 0)
+        st.vel.set(0, 0, 0)
+      }
+      if (!st.dragging && now - st.lastInput > 700 && freeView !== 'arxiv') {
         const decay = Math.exp(-2.2 * dt)
         st.tiltX *= decay
         st.tiltZ *= decay
@@ -738,40 +812,80 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       cmp.fa = Math.abs(faTarget - cmp.fa) > 0.0005 ? cmp.fa + (faTarget - cmp.fa) * rate : faTarget
       // The side keeps its value while the focus eases away, so the camera does not swing sideways
       if (cmp.focusTarget !== 0) cmp.f = Math.abs(cmp.focusTarget - cmp.f) > 0.0005 ? cmp.f + (cmp.focusTarget - cmp.f) * rate : cmp.focusTarget
-      const tilted = st.tiltX !== 0 || st.tiltZ !== 0 || st.zoom !== 1 || comparing || focusing || panelFocusing
+      // In the arXiv view the keys move the camera, the same keys as on Home: W and S in and out, A and D
+      // left and right, Space (or E) up, Ctrl (or Q) down. Like the tilt and zoom, where it ends up is kept
+      // until the defaults are restored. The camera speeds up and slows down instead of starting and
+      // stopping at once. A tap of Ctrl gives a nudge down and holding it keeps going; Ctrl+Z and Ctrl+Y
+      // (undo and redo of the drawing) start the same way, so they take that nudge back.
+      if (freeView === 'arxiv') {
+        const keys = keysPressed.current
+        const held = (k: string) => (keys.has(k) ? 1 : 0)
+        const press = ctrlSince.current
+        if (keys.has('control') && ctrlKickedFor.current !== press) {
+          ctrlKickedFor.current = press
+          ctrlStartY.current = st.pan.y
+          st.vel.y -= 10
+        }
+        if (chordAt.current >= press && chordAt.current - press < 500 && chordDoneFor.current !== press && ctrlKickedFor.current === press) {
+          chordDoneFor.current = press
+          st.pan.y = ctrlStartY.current
+          st.vel.y = 0
+        }
+        const ctrlDown = keys.has('control') && chordDoneFor.current !== press
+        // Along the list the camera may go as far as the ends of the row
+        const roamX = THREE.MathUtils.lerp(ROAM.x, Math.max(ROAM.x, listHalf(cmp) + 6), cmp.t)
+        const top = 14 // world units per second at full speed
+        const follow = 1 - Math.exp(-9 * dt)
+        st.vel.x += ((held('d') - held('a')) * top - st.vel.x) * follow
+        st.vel.y += ((Math.max(held('e'), held(' ')) - Math.max(held('q'), ctrlDown ? 1 : 0)) * top - st.vel.y) * follow
+        st.vel.z += ((held('w') - held('s')) * top - st.vel.z) * follow
+        if (st.vel.lengthSq() < 0.0004) st.vel.set(0, 0, 0)
+        else {
+          st.pan.x = THREE.MathUtils.clamp(st.pan.x + st.vel.x * dt, -roamX, roamX)
+          st.pan.y = THREE.MathUtils.clamp(st.pan.y + st.vel.y * dt, -ROAM.yDown, ROAM.yUp)
+          st.pan.z = THREE.MathUtils.clamp(st.pan.z + st.vel.z * dt, -ROAM.out, ROAM.in)
+          st.lastInput = now
+        }
+      }
+      const tilted = st.pan.lengthSq() > 0 || st.tiltX !== 0 || st.tiltZ !== 0 || st.zoom !== 1 || comparing || focusing || panelFocusing
 
-      if (freeView) {
+      if (freeView === 'arxiv') {
+        // The camera orbits the thing it is looking at: dragging swings it round that point, which stays
+        // in the middle of the picture, and scrolling moves toward or away from it. (Turning the camera
+        // on the spot instead would swing the papers across the screen at the least touch.)
+        const fv = ARXIV_VIEW
+        // The view without the user's drag: level, turned toward a box in focus
+        const baseYaw = fv.pose.yaw + cmp.pa * cmp.pyaw
+        projRot.current.setFromEuler(projEuler.current.set(fv.pose.pitch, baseYaw, 0, 'YXZ'))
+        directionVec.current.set(0, 0, -1).applyQuaternion(projRot.current)
+        const base = projDesiredPos.current
+        // Where that view puts the camera: at the box in focus (straight out from its front, turned like it)
+        base.copy(fv.position)
+        const sy = Math.sin(fv.pose.yaw)
+        const cy = Math.cos(fv.pose.yaw)
+        const along = cmp.pa * (ARXIV_LAYOUT.distance - cmp.pd * Math.cos(cmp.pyaw))
+        const across = cmp.pa * (cmp.px + cmp.pd * Math.sin(cmp.pyaw))
+        base.x += -sy * along + cy * across
+        base.z += -cy * along - sy * across
+        base.y += cmp.pa * cmp.py
+        // Where the keys have moved the camera to
+        base.addScaledVector(lookTargetVec.current.set(1, 0, 0).applyQuaternion(projRot.current), st.pan.x)
+        base.y += st.pan.y
+        base.addScaledVector(directionVec.current, st.pan.z)
+        // The point it looks at, and how far that is
+        const distance = THREE.MathUtils.lerp(ARXIV_LAYOUT.distance, cmp.pd, cmp.pa)
+        orbitPivot.current.copy(base).addScaledVector(directionVec.current, distance)
+        // The dragged view: turned round the point (sideways freely, up and down not far)
+        const pitch = fv.pose.pitch + THREE.MathUtils.clamp(-st.tiltX * 0.8, -0.45, 0.45)
+        projDesiredQuat.current.setFromEuler(projEuler.current.set(pitch, baseYaw + st.tiltZ * 0.8, 0, 'YXZ'))
+        directionVec.current.set(0, 0, -1).applyQuaternion(projDesiredQuat.current)
+        projDesiredPos.current.copy(orbitPivot.current).addScaledVector(directionVec.current, -(distance + (st.zoom - 1) * 40))
+      } else if (freeView === 'blog') {
         // A low pose: dragging turns the view a little, scrolling moves along it
-        const fv = freeView === 'arxiv' ? ARXIV_VIEW : BLOG_VIEW
-        projEuler.current.set(
-          fv.pose.pitch - st.tiltX * 0.8,
-          fv.pose.yaw + st.tiltZ * 0.8 + (freeView === 'arxiv' ? cmp.pa * cmp.pyaw : 0),
-          0,
-          'YXZ',
-        )
+        projEuler.current.set(BLOG_VIEW.pose.pitch - st.tiltX * 0.8, BLOG_VIEW.pose.yaw + st.tiltZ * 0.8, 0, 'YXZ')
         projDesiredQuat.current.setFromEuler(projEuler.current)
         directionVec.current.set(0, 0, -1).applyQuaternion(projDesiredQuat.current)
-        // The arXiv comparison and focus move the camera in toward the papers, and a focus also
-        // slides it sideways to be in front of the paper that was picked
-        const reach = Math.max(cmp.t, cmp.fa)
-        const dolly = freeView === 'arxiv' ? reach * (ARXIV_LAYOUT.distance - ARXIV_LAYOUT.compareDistance) : 0
-        const slide = freeView === 'arxiv' ? cmp.fa * cmp.f * ((cmp.paperWidth + ARXIV_LAYOUT.gap) / 2) : 0
-        projDesiredPos.current.copy(fv.position).addScaledVector(directionVec.current, -(st.zoom - 1) * 40 + dolly)
-        projDesiredPos.current.addScaledVector(lookTargetVec.current.set(1, 0, 0).applyQuaternion(projDesiredQuat.current), slide)
-        if (freeView === 'arxiv') {
-          projDesiredPos.current.y -= reach * ARXIV_LAYOUT.compareDrop
-          // Focus on a panel: the camera goes to the point straight out from the panel's front, at the
-          // focus distance (the panel may be turned, and the camera turns to match, above). In the
-          // overview's own frame, where f is the way the overview camera looks and r its right, the
-          // front of a panel turned by a is (-cos a) f + (sin a) r.
-          const sy = Math.sin(fv.pose.yaw)
-          const cy = Math.cos(fv.pose.yaw)
-          const along = cmp.pa * (ARXIV_LAYOUT.distance - cmp.pd * Math.cos(cmp.pyaw))
-          const across = cmp.pa * (cmp.px + cmp.pd * Math.sin(cmp.pyaw))
-          projDesiredPos.current.x += -sy * along + cy * across
-          projDesiredPos.current.z += -cy * along - sy * across
-          projDesiredPos.current.y += cmp.pa * cmp.py
-        }
+        projDesiredPos.current.copy(BLOG_VIEW.position).addScaledVector(directionVec.current, -(st.zoom - 1) * 40)
       } else {
         // The Projects pose for this tilt and zoom: the overhead camera, turned about the ground
         // point under it
@@ -896,10 +1010,10 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     if (keysPressed.current.has('d')) {
       movementVec.current.addScaledVector(rightVec.current, moveSpeed)
     }
-    if (keysPressed.current.has('q')) {
+    if (keysPressed.current.has('q') || keysPressed.current.has('control')) {
       movementVec.current.y -= moveSpeed
     }
-    if (keysPressed.current.has('e')) {
+    if (keysPressed.current.has('e') || keysPressed.current.has(' ')) {
       movementVec.current.y += moveSpeed
     }
 
@@ -970,6 +1084,21 @@ function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void;
             // VRAM Optimization 3: Material simplification - Mobile vs Desktop
             const standardMat = material as THREE.MeshStandardMaterial
             
+            // The map file marks every material as glass (KHR_materials_transmission, factor 1). three.js
+            // draws glass in a separate pass that shows what is behind it, so models behind or under the
+            // map showed through it, with dark patches where they were. Make it a plain solid surface that
+            // looks the same: no diffuse light (glass has none), and the picture as an unlit glow, tinted by
+            // the sky colour it used to be seen against.
+            const glass = material as THREE.MeshPhysicalMaterial
+            if (glass.transmission > 0) {
+              glass.transmission = 0
+              glass.color.set(0x000000)
+              glass.emissive.set(SKY_COLOR)
+              glass.emissiveMap = glass.map
+              glass.emissiveIntensity = 1
+              glass.specularIntensity = 0
+            }
+
             standardMat.side = THREE.FrontSide
             standardMat.transparent = false
             standardMat.opacity = 1.0
@@ -1231,29 +1360,181 @@ function SummonersRift() {
     return () => window.clearTimeout(timer)
   }, [blogView, isReady])
 
-  // The arXiv view: which paper and page, and whether the side-by-side comparison is on. The
-  // comparison is a 0..1 value the camera and the papers both follow (eased in CameraController).
-  const arxivTarget = useMemo(() => resolveTarget(pathname, search), [pathname, search])
-  const [arxivPage, setArxivPage] = useState(1)
-  const [arxivPages, setArxivPages] = useState(0)
-  const [arxivError, setArxivError] = useState<string | null>(null)
-  // Translating the paper: the papers do it and report progress; the controls start and stop it
-  const [arxivTranslation, setArxivTranslation] = useState<ArxivTranslation>(idleTranslation)
-  const arxivCommands = useRef<ArxivCommands>({ translate: () => undefined, stop: () => undefined, reset: () => undefined })
+  // The arXiv view: the list of papers (the ones kept from before, and the one in the address), and
+  // what each reports. The side-by-side comparison is a 0..1 value the camera and the sheets both
+  // follow (eased in CameraController).
+  const arxivTarget = useMemo(() => (/^\/arxiv\/?$/i.test(pathname) ? DEFAULT_ARXIV_PAPER : resolveTarget(pathname, search)), [pathname, search])
+  const [arxivPapers, setArxivPapers] = useState<PaperEntry[]>([])
+  const [arxivInfo, setArxivInfo] = useState<Record<string, PaperInfo>>({})
+  const arxivInfoRef = useRef<Record<string, PaperInfo>>({}) // always current
+  const arxivIds = useRef(0)
+  // The papers in one long row, one after the other (the same while the focus jumps from one to the next)
+  const [arxivList, setArxivList] = useState(() => {
+    try {
+      return window.localStorage.getItem('arxiv-list-layout') === '1'
+    } catch {
+      return false
+    }
+  })
+  // Which papers are left out of the list (all are in it unless unticked)
+  const [arxivLeftOut, setArxivLeftOut] = useState<string[]>([])
+  const toggleArxivListed = (id: string) =>
+    setArxivLeftOut((out) => (out.includes(id) ? out.filter((x) => x !== id) : [...out, id]))
+  const toggleArxivList = () =>
+    setArxivList((on) => {
+      try {
+        window.localStorage.setItem('arxiv-list-layout', on ? '0' : '1')
+      } catch {
+        /* just not remembered */
+      }
+      return !on
+    })
   const [arxivMode, setArxivMode] = useState<ArxivMode>('overview')
   const arxivCompare = useRef<ArxivViewState>(initialArxivView())
+
+  useEffect(() => {
+    if (!arxivView) return
+    const stored = loadArxivList()
+    const targets = arxivTarget && !stored.includes(arxivTarget) ? [arxivTarget, ...stored] : stored
+    const unique = targets.filter((t, i) => targets.indexOf(t) === i).slice(0, MAX_ARXIV_PAPERS)
+    setArxivPapers((prev) =>
+      unique.map((t) => prev.find((p) => p.target === t) ?? { id: `p${++arxivIds.current}`, target: t, page: 1 }),
+    )
+  }, [arxivView, arxivTarget])
+
+  const onArxivInfo = useCallback((id: string, patch: Partial<PaperInfo>) => {
+    const prev = arxivInfoRef.current[id] ?? idlePaperInfo()
+    arxivInfoRef.current = { ...arxivInfoRef.current, [id]: { ...prev, ...patch } }
+    setArxivInfo(arxivInfoRef.current)
+  }, [])
+  const addArxivPaper = (raw: string): string | null => {
+    const text = raw.trim()
+    if (!text) return 'Type a PDF address or an arXiv id.'
+    const address = (/^\d{4}\.\d{4,5}(v\d+)?$/.test(text) ? `arxiv.org/pdf/${text}` : text).replace(/arxiv\.org\/abs\//i, 'arxiv.org/pdf/')
+    const url = resolveTarget('/' + address.replace(/^\/+/, ''), '')
+    if (!url) return 'That is not a PDF link.'
+    const have = arxivPapers.find((p) => p.target === url)
+    if (have) {
+      setArxivMode(`focus:${have.id}`)
+      return null
+    }
+    if (arxivPapers.length >= MAX_ARXIV_PAPERS) return `Up to ${MAX_ARXIV_PAPERS} papers at a time. Remove one first.`
+    const next = [...arxivPapers, { id: `p${++arxivIds.current}`, target: url, page: 1 }]
+    setArxivPapers(next)
+    saveArxivList(next.map((p) => p.target))
+    return null
+  }
+  const removeArxivPaper = (id: string) => {
+    const next = arxivPapers.filter((p) => p.id !== id)
+    setArxivPapers(next)
+    saveArxivList(next.map((p) => p.target))
+    setArxivLeftOut((out) => out.filter((x) => x !== id))
+    const rest = { ...arxivInfoRef.current }
+    delete rest[id]
+    arxivInfoRef.current = rest
+    setArxivInfo(rest)
+    setArxivMode((m) => (m === `focus:${id}` ? 'overview' : m))
+  }
+  // Page Up and Page Down in a focus: the page before or after, kept inside the paper
+  const stepArxivPage = useCallback((id: string, by: number) => {
+    const pages = arxivInfoRef.current[id]?.pages ?? 0
+    setArxivPapers((list) =>
+      list.map((p) => (p.id === id ? { ...p, page: Math.max(1, pages ? Math.min(p.page + by, pages) : p.page + by) } : p)),
+    )
+  }, [])
+  // Drag a row of the list to a new place: the order of the list is the order of the sheets in the row
+  const reorderArxivPaper = (id: string, to: number) => {
+    const i = arxivPapers.findIndex((p) => p.id === id)
+    if (i < 0) return
+    const next = arxivPapers.filter((p) => p.id !== id)
+    next.splice(Math.max(0, Math.min(to, next.length)), 0, arxivPapers[i])
+    setArxivPapers(next)
+    saveArxivList(next.map((p) => p.target))
+  }
+
+  // The sheets that exist: one per paper, named by the paper's id, in the order of the list
+  const sheetKey = arxivPapers.map((p) => p.id).join(',')
+  const sheetIds = useMemo(() => (sheetKey ? sheetKey.split(',') : []), [sheetKey])
+  const listIds = useMemo(() => sheetIds.filter((id) => !arxivLeftOut.includes(id)), [sheetIds, arxivLeftOut])
   useEffect(() => {
     const v = arxivCompare.current
-    v.target = arxivView && arxivMode === 'compare' ? 1 : 0
-    v.focusTarget = arxivView ? (arxivMode === 'left' ? -1 : arxivMode === 'right' ? 1 : 0) : 0
-    v.panelTarget = arxivView && (arxivMode === 'bar' || arxivMode === 'music') ? ARXIV_SPOTS[arxivMode] : null
-  }, [arxivView, arxivMode])
+    v.order = sheetIds
+    v.listOrder = listIds
+  }, [sheetIds, listIds])
+  // A focus on a sheet that is gone goes back to the overview
   useEffect(() => {
-    setArxivPage(1)
-  }, [arxivTarget])
+    const gone = arxivMode.startsWith('focus:') && !sheetIds.includes(arxivMode.slice(6))
+    if (gone && arxivPapers.length > 0) setArxivMode('overview')
+  }, [arxivMode, sheetIds, arxivPapers.length])
+
+  useEffect(() => {
+    const v = arxivCompare.current
+    const focusId = arxivMode.startsWith('focus:') ? arxivMode.slice(6) : null
+    v.target = arxivView && arxivList ? 1 : 0
+    v.focusTarget = arxivView && focusId ? 1 : 0
+    if (focusId) {
+      v.focusId = focusId
+      raise(v, focusId)
+    }
+    v.panelFocus = arxivView && (arxivMode === 'bar' || arxivMode === 'music') ? arxivMode : null
+    // Focusing a box (a sheet, the controls or the music player) takes the camera to where the user
+    // has put it, straight in front of it, turned the way the box is turned
+    if (arxivView && (arxivMode === 'bar' || arxivMode === 'music')) {
+      const spot = ARXIV_SPOTS[arxivMode]
+      const m = moveOf(v, arxivMode)
+      v.panelTarget = { ...spot, x: spot.x + m.x, y: spot.y + m.y, yaw: spot.yaw + m.yaw }
+    } else if (arxivView && focusId) {
+      // The camera also sinks a little so the controls under the sheets stay in view. In the list the
+      // sheet is in its place in the long row, flat to the camera, and the focus stays that way as it
+      // moves from one sheet to the next.
+      const m = moveOf(v, focusId)
+      v.panelTarget = arxivList && v.listOrder.includes(focusId)
+        ? { x: sheetBase(v, focusId, ARXIV_LAYOUT.listGap, v.listOrder).x, y: -ARXIV_LAYOUT.compareDrop, d: ARXIV_LAYOUT.compareDistance, yaw: 0 }
+        : { x: sheetBase(v, focusId).x + m.x, y: m.y - ARXIV_LAYOUT.compareDrop, d: ARXIV_LAYOUT.compareDistance, yaw: m.yaw }
+    } else {
+      v.panelTarget = null
+    }
+  }, [arxivView, arxivMode, sheetIds, listIds, arxivList])
+
+  // A focus starts from the focus pose itself: the tilt, zoom and roaming the camera had before are
+  // taken off, or the box would not land in the middle, face on
+  useEffect(() => {
+    if (arxivView && (arxivMode.startsWith('focus:') || arxivMode === 'bar' || arxivMode === 'music')) {
+      arxivCompare.current.resetCamera = true
+    }
+  }, [arxivView, arxivMode])
+
+  // R puts the sheets, the controls and the music player back where they started (and the camera
+  // back to the overview); Esc goes back to the overview from a focus; Page Up and Page Down (or the up
+  // and down arrows) turn the page of the paper in focus. All but Esc are ignored while typing.
+  const arxivModeRef = useRef(arxivMode)
+  arxivModeRef.current = arxivMode
+  useEffect(() => {
+    if (!arxivView) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setArxivMode('overview')
+        return
+      }
+      const field = e.target as HTMLElement | null
+      if (field && (/^(input|textarea|select)$/i.test(field.tagName) || field.isContentEditable)) return
+      const mode = arxivModeRef.current
+      if (mode.startsWith('focus:') && ['PageUp', 'PageDown', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        e.preventDefault()
+        stepArxivPage(mode.slice(6), e.key === 'PageDown' || e.key === 'ArrowDown' ? 1 : -1)
+        return
+      }
+      if (e.key.toLowerCase() !== 'r' || e.ctrlKey || e.metaKey || e.altKey) return
+      restoreDefaults(arxivCompare.current)
+      setArxivMode('overview')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [arxivView, stepArxivPage])
   useEffect(() => {
     if (!arxivView) {
-      setArxivTranslation(idleTranslation)
+      arxivInfoRef.current = {}
+      setArxivInfo({})
       setArxivMode('overview')
       arxivCompare.current.t = 0
       arxivCompare.current.fa = 0
@@ -1415,7 +1696,10 @@ function SummonersRift() {
           display: 'block',
           position: 'fixed',
           top: 0,
-          left: 0
+          left: 0,
+          // In the arXiv view the canvas stands above the 3D panels (z-index 800) and below the HUD
+          // (1000+), so it can hide them behind a sheet; see Css3dPanels
+          zIndex: arxivView ? 850 : undefined
         }}
         camera={{ 
           position: [initialCamera.x, initialCamera.y, initialCamera.z],
@@ -1433,8 +1717,8 @@ function SummonersRift() {
         dpr={ [1, 1.5]}
       >
         {/* Background */}
-        <color attach="background" args={['#c8dbe6']} />
-        <fog attach="fog" args={['#c8dbe6', 200, 500]} />
+        <color attach="background" args={[SKY_COLOR]} />
+        <fog attach="fog" args={[SKY_COLOR, 200, 500]} />
         
         {/* Lighting - Mobile vs Desktop */}
         <ambientLight intensity={25} />
@@ -1471,22 +1755,18 @@ function SummonersRift() {
         {/* The controls and the music player of the arXiv view, inside the scene. After the camera
             controller, so they see where the camera is this frame. */}
         {arxivView && isReady && (
-          <Css3dPanels anchor={{ position: ARXIV_VIEW.position, yaw: ARXIV_VIEW.pose.yaw }} panels={ARXIV_PANELS} />
+          <Css3dPanels anchor={{ position: ARXIV_VIEW.position, yaw: ARXIV_VIEW.pose.yaw }} panels={ARXIV_PANELS} view={arxivCompare} />
         )}
 
         {/* The two papers of the arXiv view, inside the scene */}
         {arxivView && isReady && (
           <Suspense fallback={null}>
             <ArxivPapers
-              target={arxivTarget}
-              page={arxivPage}
+              papers={arxivPapers}
               anchor={{ position: ARXIV_VIEW.position, yaw: ARXIV_VIEW.pose.yaw }}
               compare={arxivCompare}
-              onPages={setArxivPages}
-              onError={setArxivError}
-              commands={arxivCommands}
-              onTranslation={setArxivTranslation}
-              onPick={(side) => setArxivMode(side)}
+              onInfo={onArxivInfo}
+              onPick={(sheetId) => setArxivMode(`focus:${sheetId}`)}
             />
           </Suspense>
         )}
@@ -1500,6 +1780,7 @@ function SummonersRift() {
           projectsMode={subView}
           freeView={blogView ? 'blog' : arxivView ? 'arxiv' : null}
           arxivCompare={arxivCompare}
+          onArxivPage={stepArxivPage}
           startCinema={startCinema}
           onNearHome={handleNearHome}
         />
@@ -1792,6 +2073,8 @@ function SummonersRift() {
             <li data-hud-fade><strong>C:</strong> Auto camera</li>
             <li data-hud-fade><strong>W A S D:</strong> Move</li>
             <li data-hud-fade><strong>Q E:</strong> Down / up</li>
+            <li data-hud-fade><strong>Space:</strong> Up</li>
+            <li data-hud-fade><strong>Ctrl:</strong> Down</li>
             <li data-hud-fade><strong>Left drag:</strong> Look</li>
           <li data-hud-fade><strong>Right drag:</strong> Pan</li>
           <li data-hud-fade><strong>Scroll:</strong> Zoom</li>
@@ -1807,16 +2090,24 @@ function SummonersRift() {
       {showBlog && blogView && <BlogHud />}
       {showArxiv && arxivView && (
         <ArxivHud
-          target={arxivTarget}
-          page={arxivPage}
-          pages={arxivPages}
-          error={arxivError}
-          mode={arxivMode}
-          onPage={setArxivPage}
-          onMode={setArxivMode}
+          papers={arxivPapers.map((p) => ({ ...p, ...(arxivInfo[p.id] ?? idlePaperInfo()) }))}
+          urlError={arxivTarget ? null : 'The address is not a PDF link.'}
+          listLayout={arxivList}
+          onToggleList={toggleArxivList}
+          onFocusSheet={(sheetId) => {
+            setArxivLeftOut((out) => out.filter((x) => x !== sheetId))
+            setArxivMode(`focus:${sheetId}`)
+          }}
+          leftOut={arxivLeftOut}
+          onToggleListed={toggleArxivListed}
+          onAdd={addArxivPaper}
+          onRemove={removeArxivPaper}
+          onReorder={reorderArxivPaper}
           onFocusBox={() => setArxivMode('bar')}
-          translation={arxivTranslation}
-          commands={arxivCommands}
+          onReset={() => {
+            restoreDefaults(arxivCompare.current)
+            setArxivMode('overview')
+          }}
         />
       )}
 
@@ -1828,7 +2119,23 @@ function SummonersRift() {
 
 // Enhanced loading screen with progress
 function LoadingScreen() {
-  const { progress } = useProgress()
+  // drei's progress is loaded items over known items. More items are discovered while loading (the
+  // map first, then its textures and the models), so the raw number can start high and fall back.
+  // The bar shows the highest value reached so far, eased toward it, and never reads 100 before the
+  // scene is ready (this screen is removed at that point).
+  const { progress: raw } = useProgress()
+  const best = useRef(0)
+  best.current = Math.max(best.current, Math.min(raw, 99))
+  const [progress, setProgress] = useState(0)
+  useEffect(() => {
+    let frame = 0
+    const tick = () => {
+      setProgress((p) => (best.current - p < 0.05 ? best.current : p + (best.current - p) * 0.12))
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   return (
     <div className="loading-overlay">
