@@ -7,7 +7,12 @@
 // The few that already ship with the site (public/models/rift) load from the site itself.
 import { BUNDLED_MODELS } from './modelPack.generated'
 
-export const PACK_URL = 'https://cdn.jsdelivr.net/gh/LongpanZhou/rift-models@main/'
+// Pinned to a version (a tag of the repository) so that the CDN never serves a list that does not match the
+// models. When models are added: build the pack, push it, tag it v2, and change the two v1 here.
+export const PACK_URL = 'https://cdn.jsdelivr.net/gh/LongpanZhou/league-of-legends-models@v1/'
+// The CDN does not serve files over 20 MB from a repository; the few champions that big come straight from it
+const RAW_URL = 'https://raw.githubusercontent.com/LongpanZhou/league-of-legends-models/v1/'
+const CDN_FILE_LIMIT = 19.5e6
 
 export interface LocalModel {
   path: string // relative to the folder, with forward slashes
@@ -28,11 +33,13 @@ export interface DescribedModel {
 // Where a model is loaded from. In development: the local folder, through the dev route. On the live
 // site: the copy that ships with the site if there is one (public/models/rift, flat: just the file name),
 // otherwise the model pack.
-export const isBundled = (path: string) => BUNDLED_MODELS.has(path.split('/').pop() ?? path)
+export const isBundled = (path: string) => !path.includes('/') && BUNDLED_MODELS.has(path)
 function modelUrl(path: string): string {
   if (import.meta.env.DEV) return '/__local-models/file/' + path.split('/').map(encodeURIComponent).join('/')
-  const file = encodeURIComponent(path.split('/').pop() ?? path)
-  return isBundled(path) ? `${import.meta.env.BASE_URL}models/rift/${file}` : `${PACK_URL}models/${file}`
+  if (isBundled(path)) return `${import.meta.env.BASE_URL}models/rift/${encodeURIComponent(path)}`
+  // The pack keeps the folders of the models folder (models/champions/...)
+  const inPack = 'models/' + path.split('/').map(encodeURIComponent).join('/')
+  return (knownSizes.get(path) ?? 0) > CDN_FILE_LIMIT ? RAW_URL + inPack : PACK_URL + inPack
 }
 
 // How big each model in the list is, so a download can show how far it has got

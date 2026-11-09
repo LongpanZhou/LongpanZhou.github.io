@@ -14,6 +14,7 @@ import { DEFAULT_ADDED, DEFAULT_DELETED, DEFAULT_LOCKED, DEFAULT_NAMES, DEFAULT_
 import { BAKED_POSES } from './riftPoses'
 import { EDITOR_ENABLED, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
 import type { AddedEntry, InventoryTile, PathPoints, Pose } from './riftEdit'
+import ModelBoundary from './ModelBoundary'
 import './RiftLock.css'
 
 // Turrets, nexus and monsters come from League of Legends game assets in public/models/rift.
@@ -1252,7 +1253,9 @@ function Placed({ item, pose }: { item: Item; pose: Pose }) {
             }
       }
     >
-      <Suspense fallback={null}>{body}</Suspense>
+      <ModelBoundary name={edit.names[item.id] || item.name}>
+        <Suspense fallback={null}>{body}</Suspense>
+      </ModelBoundary>
       {/* The box stands on a point above the head, so it grows upward however tall it gets (folded, with the
           clip list, with the route row), instead of spreading both ways over the model */}
       {edit.editing && edit.boxes && (

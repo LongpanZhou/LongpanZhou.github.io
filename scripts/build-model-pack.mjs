@@ -3,12 +3,12 @@
 //
 //   1. bun run dev                          (the pictures are drawn by the site's own preview renderer)
 //   2. npm i --no-save playwright-core      (a browser to draw them in; Chrome must be installed)
-//   3. node scripts/build-model-pack.mjs ../rift-models
+//   3. node scripts/build-model-pack.mjs ../league-of-legends-models
 //
-// The argument is a clone of the rift-models repository. The script fills it:
-//   models/<name>.glb   the models (only the files at the top of modelviewer; the champions folder is
-//                       too big for a repository and is left out)
-//   thumbs/<name>.png   a picture of each
+// The argument is a clone of the league-of-legends-models repository. The script fills it:
+//   models/<name>.glb   the models at the top of modelviewer, and models/champions/<name>.glb for the
+//                       champions folder
+//   thumbs/<name>.png   a picture of each (thumbs/champions/<name>.png for the champions)
 //   models.json         [{ path, size, side, thumb, bundled }] for every model
 // and writes src/SummonersRift/modelPack.generated.ts (which models already ship with the site in
 // public/models/rift, so they are not downloaded again). Commit and push the pack repository after.
@@ -17,15 +17,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from 'playwright-core'
 
-const out = path.resolve(process.argv[2] ?? '../rift-models')
+const out = path.resolve(process.argv[2] ?? '../league-of-legends-models')
 const site = process.cwd()
 const origin = process.env.SITE_ORIGIN ?? 'http://localhost:5173'
 const chrome = process.env.CHROME ?? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 
 const list = await (await fetch(`${origin}/__local-models/list`)).json()
-const top = list.filter((m) => !m.path.includes('/') && m.path.toLowerCase().endsWith('.glb'))
-fs.mkdirSync(path.join(out, 'models'), { recursive: true })
-fs.mkdirSync(path.join(out, 'thumbs'), { recursive: true })
+// Everything at the top of the folder, and the champions folder
+const top = list.filter((m) => m.path.toLowerCase().endsWith('.glb') && (!m.path.includes('/') || m.path.startsWith('champions/')))
 
 const bundledDir = path.join(site, 'public', 'models', 'rift')
 const bundled = new Set(fs.existsSync(bundledDir) ? fs.readdirSync(bundledDir).filter((f) => f.endsWith('.glb')) : [])
@@ -41,13 +40,22 @@ await page.goto(origin, { waitUntil: 'domcontentloaded' })
 const manifest = []
 let failed = 0
 for (const m of top) {
+  fs.mkdirSync(path.dirname(path.join(out, 'models', m.path)), { recursive: true })
+  fs.mkdirSync(path.dirname(path.join(out, 'thumbs', m.path)), { recursive: true })
   fs.copyFileSync(path.join(site, 'modelviewer', m.path), path.join(out, 'models', m.path))
+  const name = m.path.replace(/\.glb$/i, '')
+  let thumb = null
+  // A picture that was already made is kept (so a run that stopped halfway can be run again); set REDRAW=1 to draw them all again
+  if (!process.env.REDRAW && fs.existsSync(path.join(out, 'thumbs', `${name}.png`))) {
+    thumb = `thumbs/${name}.png`
+    manifest.push({ path: m.path, size: m.size, ...(m.side ? { side: m.side } : {}), thumb, bundled: bundled.has(m.path) })
+    process.stdout.write(`${manifest.length}/${top.length}`)
+    continue
+  }
   const dataUrl = await page.evaluate(async (url) => {
     const mod = await import('/src/SummonersRift/modelPreview.ts')
     return mod.getPreview(url)
-  }, `/__local-models/file/${encodeURIComponent(m.path)}`)
-  const name = m.path.replace(/\.glb$/i, '')
-  let thumb = null
+  }, `/__local-models/file/${m.path.split('/').map(encodeURIComponent).join('/')}`)
   if (dataUrl && dataUrl.startsWith('data:image/png;base64,')) {
     fs.writeFileSync(path.join(out, 'thumbs', `${name}.png`), Buffer.from(dataUrl.split(',')[1], 'base64'))
     thumb = `thumbs/${name}.png`
