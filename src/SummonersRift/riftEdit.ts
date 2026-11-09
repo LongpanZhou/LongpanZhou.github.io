@@ -248,3 +248,23 @@ export function saveLocked(ids: string[]) {
 
 // A deep copy, so the default layout is never changed by editing the loaded one
 const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+
+/**
+ * A visitor's changes to the layout are saved in their browser and win over the default. So when the default
+ * layout is updated, a visitor who saved before would keep the old one for good. Each saved layout is stamped
+ * with the version of the default it started from, and when the default has changed since, the visitor's saved
+ * layout (positions, additions, deletions, names, sizes, routes) is dropped and they get the new default.
+ * The developer's own browser (localhost) is left alone: those edits are theirs.
+ */
+export function dropStaleLayout(version: string) {
+  if (IS_LOCAL) return
+  try {
+    const seen = window.localStorage.getItem('riftLayoutVersion')
+    if (seen !== null && seen !== version) {
+      for (const key of [KEY, TYPE_KEY, NAMES_KEY, ADDED_KEY, DELETED_KEY, LOCKED_KEY, PATHS_KEY]) window.localStorage.removeItem(key)
+    }
+    window.localStorage.setItem('riftLayoutVersion', version)
+  } catch {
+    // Storage can be blocked: nothing is saved, so nothing can be stale
+  }
+}

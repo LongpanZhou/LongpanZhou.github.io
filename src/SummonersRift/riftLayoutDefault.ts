@@ -190,6 +190,15 @@ interface SavedLayout {
   [id: string]: unknown
 }
 const layout = saved as unknown as SavedLayout
+
+// A short fingerprint of the default layout: it changes whenever defaultLayout.json does. Layouts saved in a
+// visitor's browser carry it, so they can be dropped when the default has moved on (see dropStaleLayout).
+export const LAYOUT_VERSION = (() => {
+  const text = JSON.stringify(saved)
+  let hash = 5381
+  for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0
+  return (hash >>> 0).toString(36)
+})()
 const hasSaved = typeof layout.__savedAt === 'string'
 
 export const DEFAULT_ADDED: AddedEntry[] = hasSaved

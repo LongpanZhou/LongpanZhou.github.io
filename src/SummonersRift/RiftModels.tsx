@@ -10,9 +10,9 @@ import type { Fraction, Team } from './riftLayout'
 import { describeLocalModel, downloadModel, fetchLocalModels, isBundled } from './localModels'
 import { clipControls, hasStates, isEpicModel, isRevealed, joinGroup, kindsOf, leaveGroup, movedParts, onClipsChange, onRevealed, planClips, registerClips, sameClip, showOfKind, showParts, timeScaleFor, unregisterClips } from './monsterClips'
 import type { ClipControl, GroupMember } from './monsterClips'
-import { DEFAULT_ADDED, DEFAULT_DELETED, DEFAULT_LOCKED, DEFAULT_NAMES, DEFAULT_OVERRIDES, DEFAULT_PATHS, DEFAULT_TYPE_SCALES } from './riftLayoutDefault'
+import { DEFAULT_ADDED, DEFAULT_DELETED, DEFAULT_LOCKED, DEFAULT_NAMES, DEFAULT_OVERRIDES, DEFAULT_PATHS, DEFAULT_TYPE_SCALES, LAYOUT_VERSION } from './riftLayoutDefault'
 import { BAKED_POSES } from './riftPoses'
-import { EDITOR_ENABLED, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
+import { EDITOR_ENABLED, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, dropStaleLayout, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
 import type { AddedEntry, InventoryTile, PathPoints, Pose } from './riftEdit'
 import ModelBoundary from './ModelBoundary'
 import './RiftLock.css'
@@ -356,6 +356,7 @@ function migratePitSpawns() {
     // Storage can be blocked. The built-in random pits still work for this session.
   }
 }
+dropStaleLayout(LAYOUT_VERSION)
 migratePitSpawns()
 
 // The side each local model declares, filled in when the folder's list arrives

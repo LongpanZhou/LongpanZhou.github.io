@@ -490,7 +490,7 @@ export default function PanelChrome({
       window.removeEventListener('rift-panel-resize-demo', onDemo)
       cancelDemo()
     }
-  }, [resizable, id, minWidth, minHeight]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resizable, id, minWidth, minHeight])
 
   const toggle = () => {
     if (justDragged.current) return
