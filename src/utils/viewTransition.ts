@@ -9,8 +9,9 @@ const FADE_MS = 240
 
 let leaving = false
 
-export function leaveThen(go: () => void) {
-  if (leaving) return
+// Returns false when a change of view is already under way (the call is then ignored).
+export function leaveThen(go: () => void): boolean {
+  if (leaving) return false
   leaving = true
   const root = document.documentElement
   root.classList.add('view-leaving')
@@ -21,4 +22,5 @@ export function leaveThen(go: () => void) {
       leaving = false
     }, 140)
   }, FADE_MS)
+  return true
 }

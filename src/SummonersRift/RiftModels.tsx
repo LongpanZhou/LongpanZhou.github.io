@@ -2,7 +2,7 @@ import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, u
 import type { CSSProperties } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
-import { Html, Line, useAnimations, useGLTF } from '@react-three/drei'
+import { Html, Line, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as cloneRig } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { BLUE, GOLD, GROUND_Y, LANES, NEXUS_AT, NEXUS_TURRET_SPOTS, RED, TOWER_SPOTS, place } from './riftLayout'
@@ -15,6 +15,7 @@ import { BAKED_POSES } from './riftPoses'
 import { EDITOR_ENABLED, editState, editorStore, loadAdded, loadOpenToolbars, loadDeleted, loadLocked, loadNames, dropStaleLayout, loadOverrides, loadPaths, loadTypeScales, saveAdded, saveOpenToolbars, saveDeleted, saveLocked, saveNames, saveOverrides, savePaths, saveTypeScales } from './riftEdit'
 import type { AddedEntry, InventoryTile, PathPoints, Pose } from './riftEdit'
 import ModelBoundary from './ModelBoundary'
+import { useModelSleep, useSleepyAnimations } from './modelSleep'
 import './RiftLock.css'
 
 // Turrets, nexus and monsters come from League of Legends game assets in public/models/rift.
@@ -132,13 +133,11 @@ const JUNGLE_CAMPS: { at: Fraction; monster: Monster }[] = [
   { at: [0.6, 0.2], monster: SCUTTLE_CRAB },
   { at: [0.6, 0.72], monster: VOID_GRUBS },
 ]
-const MONSTER_URLS = [...new Set([...JUNGLE_CAMPS, ...PIT_ITEMS].map((m) => `${M}${m.monster.file}`))]
 
 const MAP_CENTER = place('blue', [0.5, 0.5])
 
-for (const url of [TURRET, NEXUS_MODEL, ...MONSTER_URLS]) {
-  useGLTF.preload(url)
-}
+// The models are not downloaded ahead of time. They start when the scene mounts them, which is once the
+// map's file has arrived (see SummonersRift.tsx), so the map does not share the connection with them.
 
 // Yaw that turns a model's front (+Z, the glTF forward) toward `to`.
 function facingToward(from: THREE.Vector3, to: THREE.Vector3): number {
@@ -495,6 +494,7 @@ function FittedModel({ url, height, tint, entityId }: { url: string; height: num
   const gltf = useGLTF(url)
   const scene = useMemo(() => fittedInstance(url, gltf.scene, height, tint), [url, gltf, height, tint])
   const group = useRef<THREE.Group>(null)
+  useModelSleep(group, height) // out of view, its bones are left alone
   const pop = usePop(group, true) // it grows in when the site has loaded
   useEffect(() => {
     if (!entityId) return
@@ -571,7 +571,8 @@ function MonsterModel({
   const gltf = useGLTF(url)
   const root = useRef<THREE.Group>(null)
   const scene = useMemo(() => fittedInstance(url, gltf.scene, height), [url, gltf, height])
-  const { actions, mixer } = useAnimations(gltf.animations, root)
+  const { awake, step } = useModelSleep(root, height) // out of view, it neither animates nor updates its bones
+  const { actions, mixer } = useSleepyAnimations(gltf.animations, root, awake, step)
   const plan = useMemo(() => planClips(gltf.animations.map((a) => a.name), clip), [gltf.animations, clip])
   const epic = useMemo(() => isEpicModel(url), [url])
   const pop = usePop(root, !plan.spawn)

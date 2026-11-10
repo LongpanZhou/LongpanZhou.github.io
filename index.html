@@ -38,6 +38,21 @@
         }
       }(window.location))
     </script>
+    <!-- The map is by far the largest download, and nothing can be shown before it is in. It is asked for
+         here, at once, not after the page's code has loaded and run. Only on the addresses that show the
+         map, and not on phones, which get a notice instead. -->
+    <script>
+      (function (l) {
+        if (/^\/(welcome|profile|animalclicks)\/?$/.test(l.pathname) || /^\/blog\/./.test(l.pathname)) return;
+        if (/Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) return;
+        var link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'fetch';
+        link.href = '/rift-opt.glb';
+        link.crossOrigin = 'anonymous';
+        document.head.appendChild(link);
+      })(window.location);
+    </script>
     <noscript>
       <p style="font-family: sans-serif; padding: 2rem; color: #f0e6d2; background: #010a13">
         Longpan Zhou, software developer. This portfolio is an interactive 3D page and needs JavaScript. Projects are

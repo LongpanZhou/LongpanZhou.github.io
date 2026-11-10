@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Nav from './components/Nav/Nav';
+import Loader from './components/Loader';
 import './App.css';
 import './components/TargetLock.css';
 import { isMobile } from './utils/isMobile';
@@ -33,30 +34,17 @@ function AppLayout() {
   return (
     <>
       <Nav transparent={isHome} />
-      <Suspense fallback={
-        <div style={{
-          minHeight: '100vh',
-          background: '#0A1428',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#C8AA6E',
-          fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
-          fontSize: '18px',
-          letterSpacing: '3px',
-          textTransform: 'uppercase',
-        }}>
-          Loading...
-        </div>
-      }>
+      {/* On the way to the map this is the same screen the map's own loading shows next, bar included,
+          so the two follow each other without a cut */}
+      <Suspense fallback={isHome ? <Loader label="Loading Summoner's Rift" progress={0} /> : <Loader label="Loading" />}>
         <Routes>
           <Route path="/" element={<SummonersRift />} />
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/animalclicks" element={<Clicks />} />
+          <Route path="/welcome" element={<div className="page-enter"><Welcome /></div>} />
+          <Route path="/profile" element={<div className="page-enter"><Profile /></div>} />
+          <Route path="/animalclicks" element={<div className="page-enter"><Clicks /></div>} />
           <Route path="/projects" element={<SummonersRift />} />
           <Route path="/blog" element={<SummonersRift />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/blog/:slug" element={<div className="page-enter"><BlogPost /></div>} />
           {/* Any other path is treated as a PDF URL to proxy-render,
               e.g. /arxiv.org/pdf/1706.03762 */}
           <Route path="*" element={<SummonersRift />} />

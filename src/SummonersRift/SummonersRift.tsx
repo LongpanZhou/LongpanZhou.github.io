@@ -16,6 +16,7 @@ import PositionBox from './PositionBox'
 import LayoutEditorUI from './LayoutEditorUI'
 import { editState } from './riftEdit'
 import { HudDraw } from '../components/DrawFrame'
+import Loader from '../components/Loader'
 import ProjectsHud, { useReadme } from './ProjectsHud'
 import BlogHud from './BlogHud'
 import ArxivHud from './ArxivHud'
@@ -518,7 +519,11 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   const ctrlKickedFor = useRef(-1) // the Ctrl press that has been given its nudge down
   const chordAt = useRef(0) // when Ctrl+Z or Ctrl+Y (undo, redo) was last pressed
   const chordDoneFor = useRef(-1) // the Ctrl press whose nudge an undo has taken back
-  const moveSpeed = 0.5
+  // Home view, in world units per second. The camera speeds up and slows down instead of starting and
+  // stopping at once, and covers the same ground on any screen refresh rate.
+  const moveSpeed = 30
+  const moveVel = useRef(new THREE.Vector3())
+  const autoVel = useRef(new THREE.Vector3()) // the auto camera's velocity, eased the same way
   const shake = useMemo(() => createCameraShake(), [])
   
   // Auto-movement state
@@ -655,6 +660,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   // Initialize target when auto-movement is enabled
   useEffect(() => {
     if (autoMove) {
+      autoVel.current.set(0, 0, 0)
       autoMoveTarget.current.set(
         Math.random() * (boundingBox.maxX - boundingBox.minX) + boundingBox.minX,
         Math.random() * (boundingBox.maxY - boundingBox.minY) + boundingBox.minY,
@@ -764,6 +770,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     // mouse is idle the tilt and zoom ease away and the camera returns to the overhead pose.
     if (projectsMode) {
       if (controlsRef.current) controlsRef.current.enabled = false
+      moveVel.current.set(0, 0, 0)
       const dt = Math.min(delta, 0.1)
       const st = projState.current
       // The arXiv view keeps the tilt and zoom the user gave it, until they are reset
@@ -925,7 +932,10 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
         controlsRef.current.enabled = !editState.dragging
       }
 
-      const homeK = fastReturn.current ? 1 - Math.exp(-1.8 * Math.min(delta, 0.1)) : 0.01
+      moveVel.current.set(0, 0, 0)
+      // The slow first fly-in closes 1% of the distance per frame at 60 frames a second; as a rate per
+      // second it takes the same time on any screen
+      const homeK = 1 - Math.exp(-(fastReturn.current ? 1.8 : 0.6) * Math.min(delta, 0.1))
       camera.position.lerp(homePosition, homeK)
 
       tempEuler.current.set(homePitchRad, homeYawRad, 0, 'YXZ')
@@ -949,6 +959,8 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     // Auto-movement mode
     if (autoMove) {
       const time = state.clock.elapsedTime
+      const dt = Math.min(delta, 0.1)
+      moveVel.current.set(0, 0, 0)
 
       const distanceToTargetSq = camera.position.distanceToSquared(autoMoveTarget.current)
       if (distanceToTargetSq < 64) {
@@ -964,9 +976,12 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       directionVec.current.subVectors(autoMoveTarget.current, camera.position)
       directionVec.current.normalize()
 
-      const speedVariation = Math.sin(time * 0.3) * 0.04 + autoMoveSpeed.current
+      // The speeds are per frame at 60 frames a second. The velocity eases toward the new heading, so
+      // the camera curves round to the next target instead of turning on the spot.
+      const speedVariation = (Math.sin(time * 0.3) * 0.04 + autoMoveSpeed.current) * 60
       movementVec.current.copy(directionVec.current).multiplyScalar(speedVariation)
-      camera.position.add(movementVec.current)
+      autoVel.current.lerp(movementVec.current, 1 - Math.exp(-1.5 * dt))
+      camera.position.addScaledVector(autoVel.current, dt)
 
       if (controlsRef.current) {
         const offsetX = Math.sin(time * rotationSpeed.current * 2) * 15
@@ -979,7 +994,7 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
           mapCenter.z + offsetZ
         )
 
-        const lerpAmount = Math.min(rotationSpeed.current * 0.5, 0.05)
+        const lerpAmount = 1 - Math.pow(1 - Math.min(rotationSpeed.current * 0.5, 0.05), dt * 60)
         controlsRef.current.target.lerp(lookTargetVec.current, lerpAmount)
         controlsRef.current.update()
       }
@@ -988,8 +1003,12 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
       return
     }
 
-    // Manual WASD controls
-    if (keysPressed.current.size === 0) return
+    // Manual WASD controls: the keys set the speed the camera wants, and its real speed follows, so it
+    // glides to a stop when the keys are let go
+    const keys = keysPressed.current
+    const vel = moveVel.current
+    if (keys.size === 0 && vel.lengthSq() === 0) return
+    const dt = Math.min(delta, 0.1)
 
     camera.getWorldDirection(forwardVec.current)
     forwardVec.current.y = 0
@@ -998,30 +1017,23 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
     rightVec.current.crossVectors(forwardVec.current, upVec.current).normalize()
     movementVec.current.set(0, 0, 0)
 
-    if (keysPressed.current.has('w')) {
-      movementVec.current.addScaledVector(forwardVec.current, moveSpeed)
-    }
-    if (keysPressed.current.has('s')) {
-      movementVec.current.addScaledVector(forwardVec.current, -moveSpeed)
-    }
-    if (keysPressed.current.has('a')) {
-      movementVec.current.addScaledVector(rightVec.current, -moveSpeed)
-    }
-    if (keysPressed.current.has('d')) {
-      movementVec.current.addScaledVector(rightVec.current, moveSpeed)
-    }
-    if (keysPressed.current.has('q') || keysPressed.current.has('control')) {
-      movementVec.current.y -= moveSpeed
-    }
-    if (keysPressed.current.has('e') || keysPressed.current.has(' ')) {
-      movementVec.current.y += moveSpeed
-    }
+    if (keys.has('w')) movementVec.current.addScaledVector(forwardVec.current, moveSpeed)
+    if (keys.has('s')) movementVec.current.addScaledVector(forwardVec.current, -moveSpeed)
+    if (keys.has('a')) movementVec.current.addScaledVector(rightVec.current, -moveSpeed)
+    if (keys.has('d')) movementVec.current.addScaledVector(rightVec.current, moveSpeed)
+    if (keys.has('q') || keys.has('control')) movementVec.current.y -= moveSpeed
+    if (keys.has('e') || keys.has(' ')) movementVec.current.y += moveSpeed
 
-    if (movementVec.current.lengthSq() > 0) {
-      camera.position.add(movementVec.current)
+    vel.lerp(movementVec.current, 1 - Math.exp(-10 * dt))
+    // The last of the glide is cut off, so the camera comes to rest (and the idle sway can start)
+    if (movementVec.current.lengthSq() === 0 && vel.lengthSq() < 0.01) vel.set(0, 0, 0)
+
+    if (vel.lengthSq() > 0) {
+      directionVec.current.copy(vel).multiplyScalar(dt)
+      camera.position.add(directionVec.current)
 
       if (controlsRef.current) {
-        controlsRef.current.target.add(movementVec.current)
+        controlsRef.current.target.add(directionVec.current)
         controlsRef.current.update()
       }
 
@@ -1032,9 +1044,35 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   return null
 }
 
+// The map is one 20 MB file, and it is the only thing the loading screen waits for. How much of it has
+// arrived (0 to 1) is read off the download itself, so the bar moves while it comes in. Counting finished
+// files, as drei's useProgress does, would leave the bar at zero until the whole file was there.
+const MAP_URL = '/rift-opt.glb'
+let mapFraction = 0
+const reportMapProgress: NonNullable<Parameters<typeof useGLTF>[3]> = (loader) => {
+  // Every model shares this one loader, and this runs on every use of it: wrap its load only once
+  type Load = (url: string, onLoad: (data: unknown) => void, onProgress?: (e: ProgressEvent) => void, onError?: (e: unknown) => void) => void
+  const target = loader as unknown as { load: Load; reportsMap?: boolean }
+  if (target.reportsMap) return
+  target.reportsMap = true
+  const load = target.load.bind(loader)
+  target.load = (url, onLoad, onProgress, onError) =>
+    load(
+      url,
+      onLoad,
+      url !== MAP_URL
+        ? onProgress
+        : (e) => {
+            if (e.total > 0) mapFraction = Math.min(1, e.loaded / e.total)
+            onProgress?.(e)
+          },
+      onError,
+    )
+}
+
 function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void; isMobileDevice: boolean }) {
   // Load optimized Summoner's Rift with full textures
-  const { scene } = useGLTF('/rift-opt.glb', true, true)
+  const { scene } = useGLTF(MAP_URL, true, true, reportMapProgress)
 
   // Notify when model is ready
   useEffect(() => {
@@ -1192,7 +1230,7 @@ function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void;
 }
 
 // Preload the model
-useGLTF.preload('/rift-opt.glb')
+useGLTF.preload(MAP_URL, true, true, reportMapProgress)
 
 // Reusable social link component for LoL-styled icons
 function SocialLink({ href, title, icon, alt, mobile, external = false }: {
@@ -1263,6 +1301,15 @@ function SummonersRift() {
     const timer = window.setTimeout(() => setDrawn(true), 8000)
     return () => window.clearTimeout(timer)
   }, [isReady])
+  // The loading screen fades out over the scene once it is ready, and is taken away after the fade
+  const [loaderGone, setLoaderGone] = useState(false)
+  useEffect(() => {
+    if (!isReady) return
+    const timer = window.setTimeout(() => setLoaderGone(true), 700)
+    return () => window.clearTimeout(timer)
+  }, [isReady])
+  // The map's file has arrived (it is the first thing the scene loads), though it may still be unpacking
+  const mapFetched = useProgress((s) => s.loaded > 0)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
   const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0 })
   const [goingHome, setGoingHome] = useState(true)
@@ -1746,11 +1793,15 @@ function SummonersRift() {
           <SummonersRiftModel onReady={handleReady} isMobileDevice={mobile} />
         </Suspense>
 
-        {/* Towers, nexuses and champions built from real CC0 models */}
-        <Suspense fallback={null}>
-          {/* The floating tags over the models are off in the arXiv view, and back as they were elsewhere */}
-          <RiftModels hideTags={arxivView} />
-        </Suspense>
+        {/* Towers, nexuses and champions built from real CC0 models. They are mounted, and so start to
+            download, once the map's file is in: about forty megabytes of models loading beside the map
+            kept the loading screen up more than twice as long. Each one appears as it arrives. */}
+        {(mapFetched || isReady) && (
+          <Suspense fallback={null}>
+            {/* The floating tags over the models are off in the arXiv view, and back as they were elsewhere */}
+            <RiftModels hideTags={arxivView} />
+          </Suspense>
+        )}
 
         {/* The controls and the music player of the arXiv view, inside the scene. After the camera
             controller, so they see where the camera is this frame. */}
@@ -1803,7 +1854,7 @@ function SummonersRift() {
       )}
 
       {/* Loading Overlay with Progress */}
-      {!isReady && <LoadingScreen />}
+      {!loaderGone && <LoadingScreen done={isReady} />}
 
       {/* Center Content - Only show button when secret is false, show full panel when secret is true */}
       {goingHome && showCenterPanel && !secret && (
@@ -1897,7 +1948,7 @@ function SummonersRift() {
           width: mobile ? 'calc(100vw - 24px)' : 'min(700px, calc(100vw - 24px))',
           opacity: 0,
           // Only the fade-in: the border, glow and corners are the shared box look
-          animation: 'fadeInBottom 1.5s ease-in forwards',
+          animation: 'fadeInBottom 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         }} data-hud-draw="Profile" data-hud-always>
           <PanelChrome id="profile" label="Profile" resizable noButton minWidth={280} minHeight={180} />
           {/* Close Button - Top Right */}
@@ -2118,47 +2169,44 @@ function SummonersRift() {
 }
 
 // Enhanced loading screen with progress
-function LoadingScreen() {
-  // drei's progress is loaded items over known items. More items are discovered while loading (the
-  // map first, then its textures and the models), so the raw number can start high and fall back.
-  // The bar shows the highest value reached so far, eased toward it, and never reads 100 before the
-  // scene is ready (this screen is removed at that point).
+function LoadingScreen({ done }: { done: boolean }) {
+  // Most of the bar is the map's file arriving, by its bytes. The rest is the map being unpacked, for
+  // which drei's progress (loaded items over known items) is the only measure: more items are
+  // discovered while loading, so that number can start high and fall back. The bar shows the highest
+  // value reached so far, eased toward it, and only reads 100 once the scene is ready (this screen
+  // then fades away).
   const { progress: raw } = useProgress()
+  const rawRef = useRef(raw)
+  rawRef.current = raw
   const best = useRef(0)
-  best.current = Math.max(best.current, Math.min(raw, 99))
+  if (done) best.current = 100
   const [progress, setProgress] = useState(0)
   useEffect(() => {
     let frame = 0
-    const tick = () => {
-      setProgress((p) => (best.current - p < 0.05 ? best.current : p + (best.current - p) * 0.12))
+    let last = performance.now()
+    const tick = (t: number) => {
+      const k = 1 - Math.exp(-((t - last) / 1000) * 7.5)
+      last = t
+      const now = mapFraction < 1 ? mapFraction * 90 : 90 + Math.min(rawRef.current, 100) * 0.09
+      best.current = Math.max(best.current, Math.min(now, 99))
+      setProgress((p) => (best.current - p < 0.05 ? best.current : p + (best.current - p) * k))
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  return (
-    <div className="loading-overlay">
-      <div className="loading-hexagon">
-        <div className="loading-hexagon__inner" />
-      </div>
-      <p className="loading-text">Loading Summoner's Rift</p>
-      <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${progress}%` }} />
-      </div>
-      <div className="progress-text">{Math.round(progress)}%</div>
-    </div>
-  )
+  return <Loader label="Loading Summoner's Rift" progress={progress} done={done} />
 }
 
 // Loading indicator for Suspense
 function LoadingIndicator() {
   const meshRef = useRef<THREE.Mesh>(null)
   
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (meshRef.current) {
-      meshRef.current.rotation.x += 0.02
-      meshRef.current.rotation.y += 0.02
+      meshRef.current.rotation.x += 1.2 * delta
+      meshRef.current.rotation.y += 1.2 * delta
     }
   })
   
