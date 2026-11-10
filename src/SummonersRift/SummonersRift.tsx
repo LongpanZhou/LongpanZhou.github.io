@@ -33,8 +33,10 @@ const ArxivPapers = lazy(() => import('./ArxivPapers'))
 // The colour of the sky: the scene's background and fog, and the tint the map has always been seen through
 const SKY_COLOR = '#c8dbe6'
 const MAX_ARXIV_PAPERS = 6
-// What /arxiv shows: the paper that opens the view when no other address is given
-const DEFAULT_ARXIV_PAPER = 'https://arxiv.org/pdf/1706.03762'
+// What /arxiv shows when no other address is given. The first paper opens the view; the rest stand
+// beside it. "Attention Is All You Need", then "Scaling Laws for Neural Language Models".
+const DEFAULT_ARXIV_PAPERS = ['https://arxiv.org/pdf/1706.03762', 'https://arxiv.org/pdf/2001.08361']
+const DEFAULT_ARXIV_PAPER = DEFAULT_ARXIV_PAPERS[0]
 const ARXIV_LIST_KEY = 'arxiv-paper-list'
 const loadArxivList = (): string[] => {
   try {
@@ -1410,7 +1412,8 @@ function SummonersRift() {
   // The arXiv view: the list of papers (the ones kept from before, and the one in the address), and
   // what each reports. The side-by-side comparison is a 0..1 value the camera and the sheets both
   // follow (eased in CameraController).
-  const arxivTarget = useMemo(() => (/^\/arxiv\/?$/i.test(pathname) ? DEFAULT_ARXIV_PAPER : resolveTarget(pathname, search)), [pathname, search])
+  const arxivDefault = /^\/arxiv\/?$/i.test(pathname) // /arxiv itself, not the address of a paper
+  const arxivTarget = useMemo(() => (arxivDefault ? DEFAULT_ARXIV_PAPER : resolveTarget(pathname, search)), [arxivDefault, pathname, search])
   const [arxivPapers, setArxivPapers] = useState<PaperEntry[]>([])
   const [arxivInfo, setArxivInfo] = useState<Record<string, PaperInfo>>({})
   const arxivInfoRef = useRef<Record<string, PaperInfo>>({}) // always current
@@ -1442,12 +1445,15 @@ function SummonersRift() {
   useEffect(() => {
     if (!arxivView) return
     const stored = loadArxivList()
-    const targets = arxivTarget && !stored.includes(arxivTarget) ? [arxivTarget, ...stored] : stored
+    // The papers this address asks for come first, then the ones kept from before. On /arxiv that is
+    // every default paper, so a visitor who already has a list still gets a default added later.
+    const wanted = arxivDefault ? DEFAULT_ARXIV_PAPERS : arxivTarget ? [arxivTarget] : []
+    const targets = [...wanted.filter((t) => !stored.includes(t)), ...stored]
     const unique = targets.filter((t, i) => targets.indexOf(t) === i).slice(0, MAX_ARXIV_PAPERS)
     setArxivPapers((prev) =>
       unique.map((t) => prev.find((p) => p.target === t) ?? { id: `p${++arxivIds.current}`, target: t, page: 1 }),
     )
-  }, [arxivView, arxivTarget])
+  }, [arxivView, arxivTarget, arxivDefault])
 
   const onArxivInfo = useCallback((id: string, patch: Partial<PaperInfo>) => {
     const prev = arxivInfoRef.current[id] ?? idlePaperInfo()
