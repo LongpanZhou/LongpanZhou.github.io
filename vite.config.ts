@@ -89,8 +89,49 @@ function localModels(): Plugin {
   }
 }
 
+// index.html asks for the site's code and the map's code as soon as it is read, instead of each
+// being found only when the one before it has run. The files' names are only known once the site is
+// built, so they are written into the page here: the two lists between the preload marks.
+function preloadChunks(): Plugin {
+  const marks = /\/\*preload\*\/[^]*?\/\*preload\*\//
+  return {
+    name: 'preload-chunks',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const chunks = Object.values(ctx.bundle ?? {}).flatMap((c) => (c.type === 'chunk' ? [c] : []))
+        // A chunk, the chunks it imports, and the stylesheets they bring
+        const filesOf = (source: string, skip = new Set<string>()): string[] => {
+          const seen = new Set<string>()
+          const visit = (name: string) => {
+            if (seen.has(name) || skip.has(name)) return
+            const chunk = chunks.find((c) => c.fileName === name)
+            if (!chunk) return
+            seen.add(name)
+            chunk.viteMetadata?.importedCss.forEach((css) => seen.add(css))
+            chunk.imports.forEach(visit)
+          }
+          const isSource = (id?: string | null) => !!id && id.split(path.sep).join('/').endsWith(source)
+          const entry = chunks.find((c) => isSource(c.facadeModuleId)) ?? chunks.find((c) => Object.keys(c.modules).some(isSource))
+          if (!entry) throw new Error(`preload-chunks: no chunk for ${source}`)
+          visit(entry.fileName)
+          return [...seen]
+        }
+        // The entry script and what it imports are already in the page
+        const inPage = new Set(filesOf('/index.html'))
+        const site = filesOf('/src/desktop.tsx', inPage)
+        const map = filesOf('/src/SummonersRift/SummonersRift.tsx', new Set([...inPage, ...site]))
+        const lists = JSON.stringify({ site: site.map((f) => '/' + f), map: map.map((f) => '/' + f) })
+        if (!marks.test(html)) throw new Error('preload-chunks: no preload marks in index.html')
+        return html.replace(marks, () => lists)
+      },
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), localModels()],
+  plugins: [react(), localModels(), preloadChunks()],
   base: '/',
 })

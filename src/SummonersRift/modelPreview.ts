@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 
 // Thumbnails for the editor's inventory: each model is rendered once, in a three-quarter view,
 // by one small separate renderer, and kept as an image. Renders are queued one at a time so the
@@ -7,6 +8,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 const SIZE = 160
 const loader = new GLTFLoader()
+loader.setMeshoptDecoder(MeshoptDecoder) // the models that ship with the site are packed with meshopt
 let renderer: THREE.WebGLRenderer | null = null
 const cache = new Map<string, Promise<string>>()
 let queue: Promise<unknown> = Promise.resolve()

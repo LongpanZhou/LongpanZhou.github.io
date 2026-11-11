@@ -4,7 +4,6 @@ import Nav from './components/Nav/Nav';
 import Loader from './components/Loader';
 import './App.css';
 import './components/TargetLock.css';
-import { isMobile } from './utils/isMobile';
 
 // Lazy load pages. The 3D Rift pulls in Three.js + a 26 MB model; keeping it
 // out of the initial bundle lets the nav render and stay clickable while it
@@ -54,35 +53,8 @@ function AppLayout() {
   );
 }
 
-// The site is built for a desktop browser: the 3D map, HUD panels and layout tools need a
-// mouse and a large screen, so phones and tablets get a notice instead.
-function MobileNotice() {
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#0A1428',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '16px',
-      padding: '24px',
-      textAlign: 'center',
-      color: '#C8AA6E',
-      fontFamily: '"Beaufort for LOL", "Times New Roman", serif',
-    }}>
-      <h1 style={{ fontSize: '22px', letterSpacing: '3px', textTransform: 'uppercase', margin: 0 }}>
-        Desktop only
-      </h1>
-      <p style={{ color: '#A09B8C', maxWidth: '320px', lineHeight: 1.6, margin: 0 }}>
-        This website isn't available on mobile devices. Please visit it from a desktop or laptop browser.
-      </p>
-    </div>
-  );
-}
-
+// Phones and tablets never get here: index.html shows them a notice and main.tsx stops there.
 function App() {
-  if (isMobile()) return <MobileNotice />;
   return (
     <Router>
       <AppLayout />

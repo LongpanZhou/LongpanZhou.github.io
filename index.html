@@ -7,9 +7,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Longpan Zhou | Software Developer</title>
     <meta name="description" content="Longpan Zhou's portfolio — an immersive 3D Summoner's Rift experience showcasing projects in deep learning, kernel development, 3D graphics, and web development." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet" />
+    <!-- The page is dark from its first paint, before any stylesheet has arrived. The notice below is
+         all a phone or tablet is shown: the site needs a mouse and a large screen. -->
+    <style>
+      html { background: #0a1428; }
+      body { margin: 0; }
+      #mobile-notice { display: none; }
+      .is-mobile #mobile-notice {
+        min-height: 100vh;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 24px;
+        text-align: center;
+        color: #c8aa6e;
+        font-family: "Beaufort for LOL", "Times New Roman", serif;
+      }
+      #mobile-notice h1 { font-size: 22px; letter-spacing: 3px; text-transform: uppercase; margin: 0; }
+      #mobile-notice p { color: #a09b8c; max-width: 320px; line-height: 1.6; margin: 0; }
+    </style>
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -38,19 +57,41 @@
         }
       }(window.location))
     </script>
-    <!-- The map is by far the largest download, and nothing can be shown before it is in. It is asked for
-         here, at once, not after the page's code has loaded and run. Only on the addresses that show the
-         map, and not on phones, which get a notice instead. -->
+    <!-- Everything the page is known to need is asked for here, at once, so the downloads run side by
+         side. Left to itself the page finds them one after another: its entry script, then the site's
+         code, then the map's code, then the map. A phone or tablet gets none of it, only the notice. -->
     <script>
       (function (l) {
-        if (/^\/(welcome|profile|animalclicks)\/?$/.test(l.pathname) || /^\/blog\/./.test(l.pathname)) return;
-        if (/Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) return;
-        var link = document.createElement('link');
-        link.rel = 'preload';
-        link.as = 'fetch';
-        link.href = '/rift-opt.glb';
-        link.crossOrigin = 'anonymous';
-        document.head.appendChild(link);
+        if (/Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          document.documentElement.className = 'is-mobile';
+          return;
+        }
+        var add = function (rel, href, as, cross) {
+          var link = document.createElement('link');
+          link.rel = rel;
+          if (as) link.as = as;
+          if (cross) link.crossOrigin = 'anonymous';
+          link.href = href;
+          document.head.appendChild(link);
+        };
+        var code = function (files) {
+          files.forEach(function (f) {
+            if (/\.css$/.test(f)) add('preload', f, 'style');
+            else add('modulepreload', f, '', true);
+          });
+        };
+        // The build writes the file names in (see vite.config.ts). The dev server leaves the lists empty.
+        var files = /*preload*/{ site: [], map: [] }/*preload*/;
+        code(files.site);
+        // The addresses that show the map, where it is by far the largest download
+        var isMap = !/^\/(welcome|profile|animalclicks)\/?$/.test(l.pathname) && !/^\/blog\/./.test(l.pathname);
+        if (isMap) {
+          code(files.map);
+          add('preload', '/rift-opt.glb', 'fetch', true);
+        }
+        // The profile page's font, added here so its stylesheet never holds up the first paint
+        add('preconnect', 'https://fonts.gstatic.com', '', true);
+        add('stylesheet', 'https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap');
       })(window.location);
     </script>
     <noscript>
@@ -59,6 +100,10 @@
         on <a href="https://github.com/LongpanZhou" style="color: #c8aa6e">github.com/LongpanZhou</a>.
       </p>
     </noscript>
+    <div id="mobile-notice">
+      <h1>Desktop only</h1>
+      <p>This website isn't available on mobile devices. Please visit it from a desktop or laptop browser.</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,0 +1,11 @@
+// The site itself. main.tsx loads this on a desktop browser only: a phone never downloads it.
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './theme/hextech.css';
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

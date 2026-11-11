@@ -1,10 +1,5 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './theme/hextech.css';
+import { isMobile } from './utils/isMobile';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+// A phone or tablet is shown a notice that is already written in index.html, and nothing more is
+// downloaded for it. Everything else (React, the router, the map) is the desktop site.
+if (!isMobile()) import('./desktop');
