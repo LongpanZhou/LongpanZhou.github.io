@@ -87,7 +87,7 @@
         var isMap = !/^\/(welcome|profile|animalclicks)\/?$/.test(l.pathname) && !/^\/blog\/./.test(l.pathname);
         if (isMap) {
           code(files.map);
-          add('preload', '/rift-opt.glb', 'fetch', true);
+          add('preload', '/rift-lite.glb', 'fetch', true);
         }
         // The profile page's font, added here so its stylesheet never holds up the first paint
         add('preconnect', 'https://fonts.gstatic.com', '', true);

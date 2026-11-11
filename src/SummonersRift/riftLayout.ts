@@ -3,7 +3,7 @@ import * as THREE from 'three'
 // Single source of truth for where things sit on the Summoner's Rift model.
 // Used by RiftUnits (3D) and anything 2D that mirrors the map (minimap, HUD).
 
-// Playable footprint in world units. Measured from rift-opt.glb's vertices after
+// Playable footprint in world units. Measured from the map's vertices (scripts/rift-opt.glb) after
 // its root rotation and the 0.01 scale on <primitive>: local x -> world x * 0.01,
 // local y -> world z * 0.01, and up is -local z.
 export const MAP_MIN_X = -159

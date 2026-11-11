@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useMemo, useState, useEffect, useLayoutEffect, useCallback } from 'react'
+import { lazy, Suspense, useRef, useMemo, useState, useEffect, useLayoutEffect, useCallback, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Grid, useGLTF, useProgress } from '@react-three/drei'
@@ -10,6 +10,7 @@ import Github from '../profile/icons/github.svg'
 import Leetcode from '../profile/icons/leetcode.svg'
 import { isMobile } from '../utils/isMobile'
 import RiftModels from './RiftModels'
+import { mapTexturesDone, onMapTexturesDone, sharpenMap } from './mapTextures'
 import { createCameraShake } from './cameraShake'
 import PanelChrome, { DragButton } from './PanelChrome'
 import PositionBox from './PositionBox'
@@ -1046,10 +1047,11 @@ function CameraController({ onPositionChange, onRotationChange, controlsRef, goi
   return null
 }
 
-// The map is one 20 MB file, and it is the only thing the loading screen waits for. How much of it has
-// arrived (0 to 1) is read off the download itself, so the bar moves while it comes in. Counting finished
-// files, as drei's useProgress does, would leave the bar at zero until the whole file was there.
-const MAP_URL = '/rift-opt.glb'
+// The map is one 6 MB file, and it is the only thing the loading screen waits for: the map with small
+// copies of its textures (the full ones follow, see mapTextures.ts). How much of it has arrived (0 to 1)
+// is read off the download itself, so the bar moves while it comes in. Counting finished files, as
+// drei's useProgress does, would leave the bar at zero until the whole file was there.
+const MAP_URL = '/rift-lite.glb'
 let mapFraction = 0
 const reportMapProgress: NonNullable<Parameters<typeof useGLTF>[3]> = (loader) => {
   // Every model shares this one loader, and this runs on every use of it: wrap its load only once
@@ -1073,8 +1075,13 @@ const reportMapProgress: NonNullable<Parameters<typeof useGLTF>[3]> = (loader) =
 }
 
 function SummonersRiftModel({ onReady, isMobileDevice }: { onReady?: () => void; isMobileDevice: boolean }) {
-  // Load optimized Summoner's Rift with full textures
-  const { scene } = useGLTF(MAP_URL, true, true, reportMapProgress)
+  // The map, with small copies of its textures
+  const gltf = useGLTF(MAP_URL, true, true, reportMapProgress)
+  const { scene } = gltf
+  const gl = useThree((s) => s.gl)
+
+  // Once the map is up, its full textures are loaded and take the small ones' place
+  useEffect(() => sharpenMap(gltf as unknown as Parameters<typeof sharpenMap>[0], gl), [gltf, gl])
 
   // Notify when model is ready
   useEffect(() => {
@@ -1310,8 +1317,8 @@ function SummonersRift() {
     const timer = window.setTimeout(() => setLoaderGone(true), 700)
     return () => window.clearTimeout(timer)
   }, [isReady])
-  // The map's file has arrived (it is the first thing the scene loads), though it may still be unpacking
-  const mapFetched = useProgress((s) => s.loaded > 0)
+  // The map's textures are all in at full size
+  const mapSharp = useSyncExternalStore(onMapTexturesDone, mapTexturesDone)
   const [cameraPos, setCameraPos] = useState({ x: 0, y: 0, z: 0 })
   const [cameraRotation, setCameraRotation] = useState({ yaw: 0, pitch: 0 })
   const [goingHome, setGoingHome] = useState(true)
@@ -1800,9 +1807,9 @@ function SummonersRift() {
         </Suspense>
 
         {/* Towers, nexuses and champions built from real CC0 models. They are mounted, and so start to
-            download, once the map's file is in: about forty megabytes of models loading beside the map
-            kept the loading screen up more than twice as long. Each one appears as it arrives. */}
-        {(mapFetched || isReady) && (
+            download, once the map and its full textures are in: about twenty megabytes of models loading
+            beside them would hold both up. Each one appears as it arrives. */}
+        {mapSharp && (
           <Suspense fallback={null}>
             {/* The floating tags over the models are off in the arXiv view, and back as they were elsewhere */}
             <RiftModels hideTags={arxivView} />

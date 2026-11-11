@@ -137,7 +137,7 @@ const JUNGLE_CAMPS: { at: Fraction; monster: Monster }[] = [
 const MAP_CENTER = place('blue', [0.5, 0.5])
 
 // The models are not downloaded ahead of time. They start when the scene mounts them, which is once the
-// map's file has arrived (see SummonersRift.tsx), so the map does not share the connection with them.
+// map and its textures have arrived (see SummonersRift.tsx), so those do not share the connection with them.
 
 // Yaw that turns a model's front (+Z, the glTF forward) toward `to`.
 function facingToward(from: THREE.Vector3, to: THREE.Vector3): number {
